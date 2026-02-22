@@ -1,20 +1,32 @@
 import asyncio
 import json
 import logging
+import re
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
-import re
 
-from app.schemas import PaperMetadata, DraftOutput, StartRequest, ReviewSection, SessionSummary, SessionDetail, PaperSource, CitationStyle, ContinueRequest, ContinueResponse, ConversationMessage, MessageRole
-from app.utils.event_queue import StreamingEventQueue
-from app.utils.exporter import ExportFormat, export_to_markdown, export_to_docx
+from app.schemas import (
+    CitationStyle,
+    ContinueRequest,
+    ContinueResponse,
+    ConversationMessage,
+    DraftOutput,
+    MessageRole,
+    PaperMetadata,
+    PaperSource,
+    SessionDetail,
+    SessionSummary,
+    StartRequest,
+)
 from app.utils.charts import generate_all_charts
+from app.utils.event_queue import StreamingEventQueue
+from app.utils.exporter import ExportFormat, export_to_docx, export_to_markdown
 from app.utils.http_pool import close_session
 from app.workflow import create_workflow
 
@@ -73,7 +85,9 @@ async def start_research(req: StartRequest):
 
     sources = req.sources if req.sources else [PaperSource.SEMANTIC_SCHOLAR]
     source_names = [s.value for s in sources]
-    logger.info("Starting research for thread %s: %s (sources: %s)", thread_id, req.query, source_names)
+    logger.info(
+        "Starting research for thread %s: %s (sources: %s)", thread_id, req.query, source_names
+    )
 
     initial_message = ConversationMessage(
         role=MessageRole.USER,
@@ -124,7 +138,9 @@ async def stream_research(thread_id: str):
                 for node_name, updates in chunk.items():
                     logs = updates.get("logs", [])
                     for log_entry in logs:
-                        event_str = json.dumps({"node": node_name, "log": log_entry}, ensure_ascii=False)
+                        event_str = json.dumps(
+                            {"node": node_name, "log": log_entry}, ensure_ascii=False
+                        )
                         await event_queue.push(event_str + "\n")
             await event_queue.push(json.dumps({"event": "done"}) + "\n")
         except Exception as e:
@@ -188,7 +204,9 @@ async def approve_papers(req: ApproveRequest):
     )
 
     existing_log_count = len(snapshot.values.get("logs", []))
-    logger.info("Approved %d papers for thread %s, resuming workflow", approved_count, req.thread_id)
+    logger.info(
+        "Approved %d papers for thread %s, resuming workflow", approved_count, req.thread_id
+    )
 
     result = await graph.ainvoke(None, config=config)
 
@@ -203,7 +221,7 @@ async def approve_papers(req: ApproveRequest):
         index_to_id = {i + 1: p.paper_id for i, p in enumerate(approved_list)}
 
         for section in final_draft.sections:
-            pattern = r'\{cite:(\d+)\}'
+            pattern = r"\{cite:(\d+)\}"
 
             def replace_match(m: re.Match[str]) -> str:
                 idx = int(m.group(1))
@@ -214,12 +232,11 @@ async def approve_papers(req: ApproveRequest):
 
             section.content = re.sub(pattern, replace_match, section.content)
             cited_indices = [
-                int(n) for n in re.findall(r'\[(\d+)\]', section.content)
+                int(n)
+                for n in re.findall(r"\[(\d+)\]", section.content)
                 if 1 <= int(n) <= max_index
             ]
-            section.cited_paper_ids = [
-                index_to_id[idx] for idx in sorted(set(cited_indices))
-            ]
+            section.cited_paper_ids = [index_to_id[idx] for idx in sorted(set(cited_indices))]
 
     return ApproveResponse(
         thread_id=req.thread_id,
@@ -251,7 +268,9 @@ async def continue_research(req: ContinueRequest):
     )
 
     existing_log_count = len(snapshot.values.get("logs", []))
-    logger.info("Continuing research for thread %s with message: %s", req.thread_id, req.message[:100])
+    logger.info(
+        "Continuing research for thread %s with message: %s", req.thread_id, req.message[:100]
+    )
 
     await graph.aupdate_state(
         config,
@@ -289,7 +308,7 @@ async def continue_research(req: ContinueRequest):
         index_to_id = {i + 1: p.paper_id for i, p in enumerate(approved_list)}
 
         for section in final_draft.sections:
-            pattern = r'\{cite:(\d+)\}'
+            pattern = r"\{cite:(\d+)\}"
 
             def replace_match(m: re.Match[str]) -> str:
                 idx = int(m.group(1))
@@ -300,12 +319,11 @@ async def continue_research(req: ContinueRequest):
 
             section.content = re.sub(pattern, replace_match, section.content)
             cited_indices = [
-                int(n) for n in re.findall(r'\[(\d+)\]', section.content)
+                int(n)
+                for n in re.findall(r"\[(\d+)\]", section.content)
                 if 1 <= int(n) <= max_index
             ]
-            section.cited_paper_ids = [
-                index_to_id[idx] for idx in sorted(set(cited_indices))
-            ]
+            section.cited_paper_ids = [index_to_id[idx] for idx in sorted(set(cited_indices))]
 
     return ContinueResponse(
         thread_id=req.thread_id,
@@ -331,9 +349,9 @@ async def get_status(thread_id: str):
         "logs": snapshot.values.get("logs", []),
         "has_draft": snapshot.values.get("final_draft") is not None,
         "candidate_count": len(snapshot.values.get("candidate_papers", [])),
-        "approved_count": len([
-            p for p in snapshot.values.get("candidate_papers", []) if p.is_approved
-        ]),
+        "approved_count": len(
+            [p for p in snapshot.values.get("candidate_papers", []) if p.is_approved]
+        ),
     }
 
 
@@ -416,13 +434,15 @@ async def list_sessions(limit: int = Query(default=50, le=100)):
         else:
             status = "pending"
 
-        sessions.append(SessionSummary(
-            thread_id=thread_id,
-            user_query=user_query,
-            status=status,
-            paper_count=approved_count,
-            has_draft=has_draft,
-        ))
+        sessions.append(
+            SessionSummary(
+                thread_id=thread_id,
+                user_query=user_query,
+                status=status,
+                paper_count=approved_count,
+                has_draft=has_draft,
+            )
+        )
 
         if len(sessions) >= limit:
             break

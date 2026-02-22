@@ -3,10 +3,10 @@ import logging
 import os
 from typing import Any, TypeVar
 
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, ValidationError
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -74,7 +74,7 @@ def _build_schema_prompt(response_model: type[BaseModel]) -> str:
     for def_name, def_schema in defs.items():
         def_required = def_schema.get("required", [])
         if def_required:
-            nested_hints.append(f'{def_name}: use fields {def_required}')
+            nested_hints.append(f"{def_name}: use fields {def_required}")
 
     nested_info = ""
     if nested_hints:

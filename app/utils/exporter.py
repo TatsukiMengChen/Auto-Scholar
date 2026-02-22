@@ -1,14 +1,14 @@
 import io
-from enum import Enum
+from enum import StrEnum
 
 from docx import Document
-from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt
 
-from app.schemas import DraftOutput, PaperMetadata, CitationStyle
+from app.schemas import CitationStyle, DraftOutput, PaperMetadata
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     MARKDOWN = "markdown"
     DOCX = "docx"
 
@@ -76,7 +76,7 @@ def format_citation(paper: PaperMetadata, index: int, style: CitationStyle) -> s
     elif style == CitationStyle.IEEE:
         author_str = _format_authors_ieee(authors)
         year_str = str(year) if year else "n.d."
-        ref = f"[{index}] {author_str}, \"{title},\" {year_str}."
+        ref = f'[{index}] {author_str}, "{title}," {year_str}.'
         if url:
             ref += f" [Online]. Available: {url}"
         return ref

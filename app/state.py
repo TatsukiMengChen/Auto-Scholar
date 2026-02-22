@@ -1,7 +1,9 @@
 import operator
-from typing_extensions import Annotated, TypedDict
+from typing import Annotated
 
-from app.schemas import PaperMetadata, DraftOutput, PaperSource, ConversationMessage
+from typing_extensions import TypedDict
+
+from app.schemas import ConversationMessage, DraftOutput, PaperMetadata, PaperSource
 
 
 class AgentState(TypedDict):

@@ -6,28 +6,28 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.constants import (
+    FULLTEXT_CONCURRENCY,
+    LLM_CONCURRENCY,
+    MAX_CONVERSATION_TURNS,
     MAX_KEYWORDS,
     PAPERS_PER_QUERY,
-    LLM_CONCURRENCY,
-    FULLTEXT_CONCURRENCY,
-    MAX_CONVERSATION_TURNS,
     get_draft_max_tokens,
 )
 from app.prompts import (
-    KEYWORD_GENERATION_SYSTEM,
-    KEYWORD_GENERATION_CONTINUATION,
     CONTRIBUTION_EXTRACTION_SYSTEM,
     CONTRIBUTION_EXTRACTION_USER,
     DRAFT_GENERATION_SYSTEM,
-    DRAFT_REVISION_ADDENDUM,
     DRAFT_RETRY_ADDENDUM,
+    DRAFT_REVISION_ADDENDUM,
     DRAFT_USER_PROMPT,
+    KEYWORD_GENERATION_CONTINUATION,
+    KEYWORD_GENERATION_SYSTEM,
 )
-from app.schemas import PaperMetadata, DraftOutput, PaperSource, ConversationMessage, MessageRole
+from app.schemas import ConversationMessage, DraftOutput, MessageRole, PaperMetadata, PaperSource
 from app.state import AgentState
+from app.utils.fulltext_api import enrich_papers_with_fulltext
 from app.utils.llm_client import structured_completion
 from app.utils.scholar_api import search_papers_multi_source
-from app.utils.fulltext_api import enrich_papers_with_fulltext
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +40,12 @@ class ContributionExtraction(BaseModel):
     core_contribution: str
 
 
-def _build_conversation_context(messages: list[ConversationMessage], max_turns: int = MAX_CONVERSATION_TURNS) -> str:
+def _build_conversation_context(
+    messages: list[ConversationMessage], max_turns: int = MAX_CONVERSATION_TURNS
+) -> str:
     if not messages:
         return ""
-    recent = messages[-max_turns * 2:] if len(messages) > max_turns * 2 else messages
+    recent = messages[-max_turns * 2 :] if len(messages) > max_turns * 2 else messages
     lines = []
     for msg in recent:
         role_label = "User" if msg.role == MessageRole.USER else "Assistant"
@@ -55,11 +57,11 @@ async def plan_node(state: AgentState) -> dict[str, Any]:
     user_query = state["user_query"]
     is_continuation = state.get("is_continuation", False)
     messages = state.get("messages", [])
-    
+
     logger.info("plan_node: decomposing query: %s (continuation: %s)", user_query, is_continuation)
 
     system_content = KEYWORD_GENERATION_SYSTEM
-    
+
     if is_continuation and messages:
         conversation_context = _build_conversation_context(messages)
         system_content += KEYWORD_GENERATION_CONTINUATION.format(
@@ -89,11 +91,15 @@ async def search_node(state: AgentState) -> dict[str, Any]:
 
     sources = state.get("search_sources", [PaperSource.SEMANTIC_SCHOLAR])
     source_names = [s.value for s in sources]
-    
-    logger.info("search_node: searching %d keywords across %s", len(keywords), source_names)
-    papers = await search_papers_multi_source(keywords, sources=sources, limit_per_query=PAPERS_PER_QUERY)
 
-    log_msg = f"Found {len(papers)} unique papers across {len(keywords)} queries from {source_names}"
+    logger.info("search_node: searching %d keywords across %s", len(keywords), source_names)
+    papers = await search_papers_multi_source(
+        keywords, sources=sources, limit_per_query=PAPERS_PER_QUERY
+    )
+
+    log_msg = (
+        f"Found {len(papers)} unique papers across {len(keywords)} queries from {source_names}"
+    )
     logger.info("search_node: %s", log_msg)
     return {"candidate_papers": papers, "logs": [log_msg]}
 
@@ -132,6 +138,7 @@ async def read_and_extract_node(state: AgentState) -> dict[str, Any]:
     logger.info("read_and_extract_node: extracting contributions from %d papers", len(approved))
 
     semaphore = asyncio.Semaphore(LLM_CONCURRENCY)
+
     async def extract_with_limit(paper: PaperMetadata) -> PaperMetadata:
         async with semaphore:
             return await _extract_contribution(paper)
@@ -157,14 +164,19 @@ async def read_and_extract_node(state: AgentState) -> dict[str, Any]:
     if failed_count:
         log_msg += f" ({failed_count} failed - check logs for details)"
     logger.info("read_and_extract_node: %s", log_msg)
-    
+
     logs = [log_msg]
-    
+
     papers_needing_pdf = [p for p in extracted if not p.pdf_url]
     if papers_needing_pdf:
-        logger.info("read_and_extract_node: enriching %d papers with full-text URLs", len(papers_needing_pdf))
+        logger.info(
+            "read_and_extract_node: enriching %d papers with full-text URLs",
+            len(papers_needing_pdf),
+        )
         try:
-            enriched = await enrich_papers_with_fulltext(extracted, concurrency=FULLTEXT_CONCURRENCY)
+            enriched = await enrich_papers_with_fulltext(
+                extracted, concurrency=FULLTEXT_CONCURRENCY
+            )
             pdf_count = sum(1 for p in enriched if p.pdf_url)
             pdf_log = f"Found full-text PDFs for {pdf_count}/{len(enriched)} papers"
             logger.info("read_and_extract_node: %s", pdf_log)
@@ -172,7 +184,7 @@ async def read_and_extract_node(state: AgentState) -> dict[str, Any]:
             extracted = enriched
         except Exception as e:
             logger.warning("read_and_extract_node: full-text enrichment failed: %s", e)
-    
+
     return {"approved_papers": extracted, "logs": logs}
 
 
@@ -214,7 +226,11 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
     elif is_continuation:
         logger.info("draft_node: CONTINUATION - updating draft based on: %s", user_query[:100])
     else:
-        logger.info("draft_node: drafting review with %d papers in %s", len(papers_with_contributions), output_language)
+        logger.info(
+            "draft_node: drafting review with %d papers in %s",
+            len(papers_with_contributions),
+            output_language,
+        )
 
     language_name = "Chinese" if output_language == "zh" else "English"
     num_papers = len(papers_with_contributions)
@@ -231,7 +247,7 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
         if existing_draft:
             section_titles = [s.heading for s in existing_draft.sections]
             existing_draft_summary = f"\nExisting draft title: {existing_draft.title}\nSections: {', '.join(section_titles)}"
-        
+
         system_prompt += DRAFT_REVISION_ADDENDUM.format(
             existing_draft_summary=existing_draft_summary,
             user_query=user_query,
@@ -262,7 +278,7 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
         max_tokens=get_draft_max_tokens(num_papers),
     )
 
-    cite_pattern = re.compile(r'\{cite:(\d+)\}')
+    cite_pattern = re.compile(r"\{cite:(\d+)\}")
     all_cited_indices: set[int] = set()
     for section in draft.sections:
         all_cited_indices.update({int(m) for m in cite_pattern.findall(section.content)})
@@ -296,7 +312,7 @@ async def qa_evaluator_node(state: AgentState) -> dict[str, Any]:
     errors: list[str] = []
     all_cited_indices: set[int] = set()
 
-    cite_pattern = re.compile(r'\{cite:(\d+)\}')
+    cite_pattern = re.compile(r"\{cite:(\d+)\}")
 
     for section_idx, section in enumerate(draft.sections):
         cited_in_content = {int(m) for m in cite_pattern.findall(section.content)}
@@ -305,14 +321,12 @@ async def qa_evaluator_node(state: AgentState) -> dict[str, Any]:
         for idx in cited_in_content:
             if idx not in valid_indices:
                 errors.append(
-                    f"Section {section_idx+1}: Hallucinated citation index "
+                    f"Section {section_idx + 1}: Hallucinated citation index "
                     f"{idx} (valid range: 1-{num_papers})"
                 )
 
         if not cited_in_content:
-            errors.append(
-                f"Section {section_idx+1}: No citations found in content"
-            )
+            errors.append(f"Section {section_idx + 1}: No citations found in content")
 
     missing = valid_indices - all_cited_indices
     for idx in sorted(missing):

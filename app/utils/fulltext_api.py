@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 import aiohttp
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.schemas import PaperMetadata
 
@@ -82,7 +82,7 @@ def _extract_doi_from_openalex(work: dict[str, Any]) -> str | None:
     doi = work.get("doi")
     if doi:
         return _normalize_doi(doi)
-    
+
     ids = work.get("ids") or {}
     if ids.get("doi"):
         return _normalize_doi(ids["doi"])
@@ -117,7 +117,7 @@ async def _openalex_search_by_title(
     params: dict[str, Any] = {"search": title, "per-page": 5}
     if year:
         params["filter"] = f"publication_year:{year}"
-    
+
     data = await _fetch_json(session, url, params=params)
     if not data:
         return []
@@ -130,7 +130,7 @@ async def resolve_pdf_url(
     year: int | None = None,
 ) -> tuple[str | None, str | None]:
     email = os.environ.get("UNPAYWALL_EMAIL", "auto-scholar@example.com")
-    
+
     timeout = aiohttp.ClientTimeout(total=20)
     headers = {"User-Agent": "auto-scholar/1.0"}
 

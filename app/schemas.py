@@ -1,17 +1,17 @@
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class PaperSource(str, Enum):
+class PaperSource(StrEnum):
     SEMANTIC_SCHOLAR = "semantic_scholar"
     ARXIV = "arxiv"
     PUBMED = "pubmed"
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -19,21 +19,23 @@ class MessageRole(str, Enum):
 
 class ConversationMessage(BaseModel):
     """A single message in the conversation history."""
+
     role: MessageRole
     content: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] | None = None
 
 
-class CitationStyle(str, Enum):
+class CitationStyle(StrEnum):
     APA = "apa"
     MLA = "mla"
     IEEE = "ieee"
     GB_T7714 = "gb-t7714"
 
 
-class ProcessingStage(str, Enum):
+class ProcessingStage(StrEnum):
     """Workflow processing stages for visualization."""
+
     PLANNING = "planning"
     SEARCHING = "searching"
     EXTRACTING = "extracting"
@@ -41,16 +43,18 @@ class ProcessingStage(str, Enum):
     QA = "qa"
 
 
-class PaperProcessingStatus(str, Enum):
+class PaperProcessingStatus(StrEnum):
     """Status of individual paper processing."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
 
 
-class SSEEventType(str, Enum):
+class SSEEventType(StrEnum):
     """Types of SSE events for frontend visualization."""
+
     LOG = "log"
     STAGE_CHANGE = "stage_change"
     PAPER_STATUS = "paper_status"
@@ -61,6 +65,7 @@ class SSEEventType(str, Enum):
 
 class PaperStatusEvent(BaseModel):
     """Event for individual paper processing status updates."""
+
     paper_id: str
     title: str
     authors: list[str]
@@ -74,6 +79,7 @@ class PaperStatusEvent(BaseModel):
 
 class StageChangeEvent(BaseModel):
     """Event for workflow stage transitions."""
+
     stage: ProcessingStage
     total_papers: int = 0
     processed_papers: int = 0
@@ -82,6 +88,7 @@ class StageChangeEvent(BaseModel):
 
 class ProgressEvent(BaseModel):
     """Event for overall progress updates."""
+
     stage: ProcessingStage
     current: int
     total: int

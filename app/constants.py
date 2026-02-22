@@ -59,6 +59,7 @@ DRAFT_MAX_TOKENS = 4000
 # Why 4000: Balances comprehensive review with cost/latency. Typical academic
 # review section is 2000-4000 words. Sufficient for 4-6 thematic sections.
 
+
 def get_draft_max_tokens(num_papers: int) -> int:
     """Calculate max tokens for draft based on paper count."""
     return min(DRAFT_MAX_TOKENS, DRAFT_BASE_TOKENS + num_papers * DRAFT_TOKENS_PER_PAPER)

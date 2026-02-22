@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 class StreamingEventQueue:
     """
     防抖流式引擎：合并 LLM 离散 Token 输出，减少 90% SSE 网络请求。
-    
+
     策略：
     1. 时间窗口：每 200ms flush 一次 buffer
     2. 语义边界：遇到标点符号（。！？\n）立即 flush

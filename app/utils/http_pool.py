@@ -9,6 +9,7 @@ Configuration rationale:
 - limit=50: Semantic Scholar rate limit is 100 req/s, we use half for safety margin
 - ttl_dns_cache=300: Cache DNS for 5 minutes, reduces DNS lookup overhead
 """
+
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 _session: ClientSession | None = None
@@ -16,7 +17,7 @@ _session: ClientSession | None = None
 
 async def get_session() -> ClientSession:
     """Get or create the shared HTTP session.
-    
+
     Thread-safe for asyncio (single event loop).
     Session is lazily created on first call.
     """
@@ -30,7 +31,7 @@ async def get_session() -> ClientSession:
 
 async def close_session() -> None:
     """Close the shared HTTP session.
-    
+
     Call this during application shutdown to release resources.
     """
     global _session
