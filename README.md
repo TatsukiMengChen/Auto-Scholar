@@ -222,12 +222,26 @@ auto-scholar/
 
 ## Performance
 
-| Metric | Value |
-|--------|-------|
-| SSE Network Reduction | 85-98% (via debouncing) |
-| Citation Accuracy | 99.9% (with QA validation) |
-| Typical Workflow Time | ~45s (3 papers) |
-| Max QA Retries | 3 |
+| Metric | Value | Validation Method |
+|--------|-------|-------------------|
+| SSE Network Reduction | 92% | Benchmark test with 263 tokens → 21 flushes |
+| Citation Accuracy | 97.3% | Manual validation of 37 citations across 3 topics |
+| Typical Workflow Time | ~45s | 3 papers end-to-end |
+| Max QA Retries | 3 | Configurable in constants.py |
+
+### Benchmark Details
+
+**SSE Debouncing** (`tests/benchmark_sse.py`):
+- Raw messages: 263 tokens
+- After debounce: 21 network requests
+- Compression ratio: 12.5x
+- Mechanism: 200ms time window + semantic boundary detection (。！？.!?\n)
+
+**Citation Validation** (`tests/validate_citations.py`):
+- Topics validated: 3 (transformer architecture, medical imaging, robotics)
+- Total citations: 37
+- Correct citations: 36
+- Error type: Citation index correct but context mismatch (QA validates existence, not semantic relevance)
 
 ## Testing
 
