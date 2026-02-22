@@ -13,7 +13,7 @@ AI 驱动的学术文献综述生成器，采用人工监督工作流。
 Auto-Scholar 帮助研究人员快速生成结构化的文献综述。输入研究主题，审查候选论文，在几分钟内获得一篇引用规范的学术综述。
 
 **核心特性：**
-- **智能论文搜索**：自动生成搜索关键词，从 Semantic Scholar 查找相关论文
+- **智能论文搜索**：自动生成搜索关键词，从 Semantic Scholar、arXiv 和 PubMed 查找相关论文
 - **人工监督**：在论文纳入综述前进行审查和确认
 - **防幻觉 QA**：验证所有引用存在且正确引用
 - **双语支持**：生成英文或中文综述，界面支持中英文
@@ -136,7 +136,7 @@ cd frontend && npm run dev
 
 系统将：
 1. 从主题生成 3-5 个搜索关键词
-2. 在 Semantic Scholar 搜索相关论文
+2. 在 Semantic Scholar、arXiv 和 PubMed 搜索相关论文
 3. 展示候选论文供你审查
 
 选择要包含在文献综述中的论文。
@@ -314,7 +314,7 @@ auto-scholar/
 - **FastAPI** - 异步 Web 框架
 - **LangGraph** - 工作流编排，支持检查点
 - **OpenAI** - LLM 用于关键词生成和综述撰写
-- **aiohttp** - Semantic Scholar 的异步 HTTP 客户端
+- **aiohttp** - Semantic Scholar、arXiv 和 PubMed 的异步 HTTP 客户端
 - **Pydantic** - 数据验证和序列化
 - **tenacity** - API 调用的重试逻辑
 
@@ -386,5 +386,7 @@ pytest tests/ -v
 
 - [LangGraph](https://github.com/langchain-ai/langgraph) - 工作流编排
 - [Semantic Scholar](https://www.semanticscholar.org/) - 学术论文 API
+- [arXiv](https://arxiv.org/) - 科学论文预印本服务器
+- [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - 生物医学文献数据库
 - [FastAPI](https://fastapi.tiangolo.com/) - 异步 Web 框架
 - [Next.js](https://nextjs.org/) - React 框架

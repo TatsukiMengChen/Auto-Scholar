@@ -15,7 +15,7 @@ AI-powered academic literature review generator with human-in-the-loop workflow.
 Auto-Scholar helps researchers quickly generate structured literature reviews. Enter a research topic, review candidate papers, and get a well-cited academic review in minutes.
 
 **Key Features:**
-- **Smart Paper Search**: Automatically generates search keywords and finds relevant papers from Semantic Scholar
+- **Smart Paper Search**: Automatically generates search keywords and finds relevant papers from Semantic Scholar, arXiv, and PubMed
 - **Human-in-the-Loop**: Review and approve papers before they're included in your review
 - **Anti-Hallucination QA**: Validates all citations exist and are properly referenced
 - **Bilingual Support**: Generate reviews in English or Chinese, with UI in both languages
@@ -130,7 +130,7 @@ Type your research topic in the query input. Examples:
 
 The system will:
 1. Generate 3-5 search keywords from your topic
-2. Search Semantic Scholar for relevant papers
+2. Search Semantic Scholar, arXiv, and PubMed for relevant papers
 3. Present candidate papers for your review
 
 Select the papers you want included in your literature review.
@@ -208,7 +208,7 @@ auto-scholar/
 - **FastAPI** - Async web framework
 - **LangGraph** - Workflow orchestration with checkpointing
 - **OpenAI** - LLM for keyword generation and review writing
-- **aiohttp** - Async HTTP client for Semantic Scholar
+- **aiohttp** - Async HTTP client for Semantic Scholar, arXiv, and PubMed
 - **Pydantic** - Data validation and serialization
 - **tenacity** - Retry logic for API calls
 
@@ -258,5 +258,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [LangGraph](https://github.com/langchain-ai/langgraph) - Workflow orchestration
 - [Semantic Scholar](https://www.semanticscholar.org/) - Academic paper API
+- [arXiv](https://arxiv.org/) - Preprint server for scientific papers
+- [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature database
 - [FastAPI](https://fastapi.tiangolo.com/) - Async web framework
 - [Next.js](https://nextjs.org/) - React framework
