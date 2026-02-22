@@ -13,6 +13,16 @@ from app.constants import (
     MAX_CONVERSATION_TURNS,
     get_draft_max_tokens,
 )
+from app.prompts import (
+    KEYWORD_GENERATION_SYSTEM,
+    KEYWORD_GENERATION_CONTINUATION,
+    CONTRIBUTION_EXTRACTION_SYSTEM,
+    CONTRIBUTION_EXTRACTION_USER,
+    DRAFT_GENERATION_SYSTEM,
+    DRAFT_REVISION_ADDENDUM,
+    DRAFT_RETRY_ADDENDUM,
+    DRAFT_USER_PROMPT,
+)
 from app.schemas import PaperMetadata, DraftOutput, PaperSource, ConversationMessage, MessageRole
 from app.state import AgentState
 from app.utils.llm_client import structured_completion
@@ -48,20 +58,12 @@ async def plan_node(state: AgentState) -> dict[str, Any]:
     
     logger.info("plan_node: decomposing query: %s (continuation: %s)", user_query, is_continuation)
 
-    system_content = (
-        "Generate 3-5 English search keywords for academic paper search.\n\n"
-        "Requirements:\n"
-        "- Each keyword: 2-4 words, specific enough to filter results\n"
-        "- Cover different angles: core concept, methodology, application domain\n"
-        "- Avoid overly broad single words (e.g. 'learning', 'analysis', 'model')"
-    )
+    system_content = KEYWORD_GENERATION_SYSTEM
     
     if is_continuation and messages:
         conversation_context = _build_conversation_context(messages)
-        system_content += (
-            "\n\nThis is a follow-up request. Consider the conversation history "
-            "when generating keywords to find additional relevant papers.\n"
-            f"Conversation history:\n{conversation_context}"
+        system_content += KEYWORD_GENERATION_CONTINUATION.format(
+            conversation_context=conversation_context
         )
 
     result = await structured_completion(
@@ -99,21 +101,13 @@ async def search_node(state: AgentState) -> dict[str, Any]:
 async def _extract_contribution(paper: PaperMetadata) -> PaperMetadata:
     result = await structured_completion(
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Extract the paper's core contribution in ONE sentence (15-30 words).\n"
-                    "Format: \"[Novel method/key finding] that [achieves/enables] [specific outcome]\"\n"
-                    "If abstract is vague, infer from title. Output in English.\n"
-                    "CRITICAL: You MUST return a non-empty string for core_contribution."
-                ),
-            },
+            {"role": "system", "content": CONTRIBUTION_EXTRACTION_SYSTEM},
             {
                 "role": "user",
-                "content": (
-                    f"Title: {paper.title}\n"
-                    f"Year: {paper.year}\n"
-                    f"Abstract: {paper.abstract}"
+                "content": CONTRIBUTION_EXTRACTION_USER.format(
+                    title=paper.title,
+                    year=paper.year,
+                    abstract=paper.abstract,
                 ),
             },
         ],
@@ -225,20 +219,9 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
     language_name = "Chinese" if output_language == "zh" else "English"
     num_papers = len(papers_with_contributions)
 
-    system_prompt = (
-        f"Write a structured literature review with 4-6 thematic sections "
-        f"in formal academic {language_name}.\n\n"
-        "REQUIRED SECTIONS:\n"
-        "1. Introduction/Background - overview of the research area\n"
-        "2-4. Thematic sections - group papers by methodology, approach, or application\n"
-        "5. Methodology Comparison - compare and contrast the methods used across papers "
-        "(include a comparison of strengths, limitations, datasets, and key findings)\n"
-        "6. Conclusion/Future Directions - summarize insights and identify research gaps\n\n"
-        "CITATION RULES:\n"
-        f"- Use {{cite:N}} to reference papers, where N is the number shown "
-        f"in brackets in the paper list (1 to {num_papers}).\n"
-        f"- Example: \"Smith et al. {{cite:1}} proposed X, while Jones {{cite:3}} extended Y.\"\n"
-        f"- You MUST cite ALL {num_papers} papers. Do NOT invent numbers outside 1-{num_papers}."
+    system_prompt = DRAFT_GENERATION_SYSTEM.format(
+        language_name=language_name,
+        num_papers=num_papers,
     )
 
     if is_continuation and messages:
@@ -249,24 +232,19 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
             section_titles = [s.heading for s in existing_draft.sections]
             existing_draft_summary = f"\nExisting draft title: {existing_draft.title}\nSections: {', '.join(section_titles)}"
         
-        system_prompt += (
-            f"\n\nThis is a REVISION request. The user wants to modify the existing draft."
-            f"{existing_draft_summary}\n"
-            f"User's modification request: {user_query}\n\n"
-            f"Conversation history:\n{conversation_context}\n\n"
-            "Please revise the draft according to the user's request while maintaining "
-            "proper citations and academic quality."
+        system_prompt += DRAFT_REVISION_ADDENDUM.format(
+            existing_draft_summary=existing_draft_summary,
+            user_query=user_query,
+            conversation_context=conversation_context,
         )
 
     if is_retry:
         top_errors = qa_errors[:3]
         error_list = "\n".join(f"- {e}" for e in top_errors)
-        system_prompt += (
-            f"\n\nPREVIOUS ATTEMPT FAILED ({len(qa_errors)} errors). Fix these:\n"
-            f"{error_list}\n"
-            f"REMINDER: Valid citation numbers are 1 to {num_papers}. "
-            f"Use ONLY {{cite:1}} through {{cite:{num_papers}}}. "
-            f"Every paper (1-{num_papers}) MUST be cited at least once."
+        system_prompt += DRAFT_RETRY_ADDENDUM.format(
+            error_count=len(qa_errors),
+            error_list=error_list,
+            num_papers=num_papers,
         )
 
     draft = await structured_completion(
@@ -274,9 +252,9 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
             {"role": "system", "content": system_prompt},
             {
                 "role": "user",
-                "content": (
-                    f"Research Topic: {user_query}\n\n"
-                    f"Papers for Review:\n{paper_context}"
+                "content": DRAFT_USER_PROMPT.format(
+                    user_query=user_query,
+                    paper_context=paper_context,
                 ),
             },
         ],
