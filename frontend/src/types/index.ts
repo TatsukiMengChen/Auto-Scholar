@@ -10,6 +10,26 @@ export interface ConversationMessage {
   metadata?: Record<string, unknown>
 }
 
+export interface StructuredContribution {
+  problem: string | null
+  method: string | null
+  novelty: string | null
+  dataset: string | null
+  baseline: string | null
+  results: string | null
+  limitations: string | null
+  future_work: string | null
+}
+
+export interface MethodComparisonEntry {
+  paper_index: number
+  title: string
+  method: string | null
+  dataset: string | null
+  baseline: string | null
+  results: string | null
+}
+
 export interface Paper {
   paper_id: string
   title: string
@@ -21,6 +41,7 @@ export interface Paper {
   pdf_url: string | null
   is_approved: boolean
   core_contribution: string | null
+  structured_contribution: StructuredContribution | null
   source?: PaperSource
 }
 

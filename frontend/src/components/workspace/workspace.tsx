@@ -4,6 +4,8 @@ import { useState } from "react"
 import { useResearchStore } from "@/store/research"
 import { ReviewRenderer } from "./review-renderer"
 import { ChartsView } from "./charts-view"
+import { MethodComparisonTable } from "./method-comparison-table"
+import { StructuredSummaryList } from "./structured-summary"
 import { ProcessingVisualizer } from "./processing-visualizer"
 import { useTranslations } from 'next-intl'
 import { Button } from "@/components/ui/button"
@@ -149,6 +151,8 @@ export function Workspace({ onRetry }: WorkspaceProps) {
             papers={approvedPapers} 
             isEditing={isEditing}
           />
+          <MethodComparisonTable papers={approvedPapers} />
+          <StructuredSummaryList papers={approvedPapers} />
           <ChartsView papers={approvedPapers} />
         </div>
       </div>
