@@ -108,7 +108,7 @@ async def _fetch_arxiv(
     query: str,
     limit: int,
 ) -> str:
-    params = {
+    params: dict[str, str | int] = {
         "search_query": f"all:{query}",
         "start": 0,
         "max_results": limit,
@@ -198,7 +198,7 @@ async def _fetch_pubmed_ids(
     query: str,
     limit: int,
 ) -> list[str]:
-    params = {
+    params: dict[str, str | int] = {
         "db": "pubmed",
         "term": query,
         "retmax": limit,

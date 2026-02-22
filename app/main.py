@@ -367,18 +367,18 @@ async def export_review(
     citation_style: CitationStyle = Query(default=CitationStyle.APA),
 ):
     if format == ExportFormat.MARKDOWN:
-        content = export_to_markdown(req.draft, req.papers, citation_style)
+        md_content = export_to_markdown(req.draft, req.papers, citation_style)
         return Response(
-            content=content.encode("utf-8"),
+            content=md_content.encode("utf-8"),
             media_type="text/markdown; charset=utf-8",
             headers={
                 "Content-Disposition": 'attachment; filename="review.md"',
             },
         )
     elif format == ExportFormat.DOCX:
-        content = export_to_docx(req.draft, req.papers, citation_style)
+        docx_content = export_to_docx(req.draft, req.papers, citation_style)
         return Response(
-            content=content,
+            content=docx_content,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={
                 "Content-Disposition": 'attachment; filename="review.docx"',

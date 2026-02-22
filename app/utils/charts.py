@@ -51,7 +51,7 @@ def generate_source_distribution_chart(papers: list[PaperMetadata]) -> str | Non
     colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"][: len(labels)]
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    wedges, texts, autotexts = ax.pie(
+    pie_result = ax.pie(
         sizes,
         labels=labels,
         autopct="%1.1f%%",
@@ -59,6 +59,7 @@ def generate_source_distribution_chart(papers: list[PaperMetadata]) -> str | Non
         startangle=90,
         explode=[0.02] * len(labels),
     )
+    autotexts = pie_result[2]  # type: ignore[misc]
 
     ax.set_title("Paper Sources Distribution", fontsize=14, fontweight="bold")
 

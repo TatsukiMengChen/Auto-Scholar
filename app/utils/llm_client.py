@@ -109,7 +109,7 @@ async def structured_completion(
     if not any(m.get("role") == "system" for m in augmented_messages):
         augmented_messages.insert(0, {"role": "system", "content": schema_instruction})
 
-    completion = await client.chat.completions.create(
+    completion = await client.chat.completions.create(  # type: ignore[call-overload]
         model=get_model(),
         messages=augmented_messages,
         response_format={"type": "json_object"},
