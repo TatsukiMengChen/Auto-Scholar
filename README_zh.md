@@ -81,8 +81,8 @@ Auto-Scholar 帮助研究人员快速生成结构化的文献综述。输入研�
 ### 1. 克隆和安装
 
 ```bash
-git clone https://github.com/yourusername/auto-scholar.git
-cd auto-scholar
+git clone https://github.com/CAICAIIs/Auto-Scholar.git
+cd Auto-Scholar
 
 # 后端
 pip install -r requirements.txt
@@ -111,7 +111,7 @@ SEMANTIC_SCHOLAR_API_KEY=your-key
 
 **终端 1 - 后端：**
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 
 **终端 2 - 前端：**
@@ -282,7 +282,7 @@ asyncio.run(generate_review())
 
 ```
 auto-scholar/
-├── app/                          # 后端（FastAPI + LangGraph）
+├── backend/                      # 后端（FastAPI + LangGraph）
 │   ├── main.py                   # API 端点
 │   ├── workflow.py               # LangGraph 工作流定义
 │   ├── nodes.py                  # 5 个工作流节点
@@ -330,7 +330,7 @@ auto-scholar/
 
 ```bash
 # 后端编译检查
-find app -name '*.py' -exec python -m py_compile {} +
+find backend -name '*.py' -exec python -m py_compile {} +
 
 # 前端类型检查
 cd frontend && npx tsc --noEmit

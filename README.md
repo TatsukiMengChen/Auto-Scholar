@@ -75,8 +75,8 @@ Auto-Scholar helps researchers quickly generate structured literature reviews. E
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/yourusername/auto-scholar.git
-cd auto-scholar
+git clone https://github.com/CAICAIIs/Auto-Scholar.git
+cd Auto-Scholar
 
 # Backend
 pip install -r requirements.txt
@@ -105,7 +105,7 @@ SEMANTIC_SCHOLAR_API_KEY=your-key
 
 **Terminal 1 - Backend:**
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 
 **Terminal 2 - Frontend:**
@@ -176,7 +176,7 @@ curl -X POST http://localhost:8000/api/research/approve \
 
 ```
 auto-scholar/
-├── app/                          # Backend (FastAPI + LangGraph)
+├── backend/                      # Backend (FastAPI + LangGraph)
 │   ├── main.py                   # API endpoints
 │   ├── workflow.py               # LangGraph workflow definition
 │   ├── nodes.py                  # 5 workflow nodes
@@ -233,7 +233,7 @@ auto-scholar/
 
 ```bash
 # Backend compile check
-find app -name '*.py' -exec python -m py_compile {} +
+find backend -name '*.py' -exec python -m py_compile {} +
 
 # Frontend type check
 cd frontend && npx tsc --noEmit
