@@ -10,11 +10,11 @@ from langgraph.graph import START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from backend.nodes import (
-    draft_node,
-    plan_node,
-    qa_evaluator_node,
-    read_and_extract_node,
-    search_node,
+    critic_agent,
+    extractor_agent,
+    planner_agent,
+    retriever_agent,
+    writer_agent,
 )
 from backend.state import AgentState
 
@@ -37,21 +37,21 @@ def _timed_node(
     return wrapper
 
 
-_timed_plan_node = _timed_node(plan_node)
-_timed_search_node = _timed_node(search_node)
-_timed_read_and_extract_node = _timed_node(read_and_extract_node)
-_timed_draft_node = _timed_node(draft_node)
-_timed_qa_evaluator_node = _timed_node(qa_evaluator_node)
+_timed_planner_agent = _timed_node(planner_agent)
+_timed_retriever_agent = _timed_node(retriever_agent)
+_timed_extractor_agent = _timed_node(extractor_agent)
+_timed_writer_agent = _timed_node(writer_agent)
+_timed_critic_agent = _timed_node(critic_agent)
 
 
-def _entry_router(state: AgentState) -> Literal["plan_node", "draft_node"]:
+def _entry_router(state: AgentState) -> Literal["planner_agent", "writer_agent"]:
     is_continuation = state.get("is_continuation", False)
     if is_continuation:
-        return "draft_node"
-    return "plan_node"
+        return "writer_agent"
+    return "planner_agent"
 
 
-def _qa_router(state: AgentState) -> Literal["draft_node", "__end__"]:
+def _qa_router(state: AgentState) -> Literal["writer_agent", "__end__"]:
     qa_errors = state.get("qa_errors", [])
     retry_count = state.get("retry_count", 0)
 
@@ -59,25 +59,25 @@ def _qa_router(state: AgentState) -> Literal["draft_node", "__end__"]:
         return "__end__"
 
     if retry_count < MAX_RETRY_COUNT:
-        return "draft_node"
+        return "writer_agent"
 
     return "__end__"
 
 
 def _build_graph() -> StateGraph:
     g = StateGraph(AgentState)
-    g.add_node("plan_node", _timed_plan_node)  # type: ignore[call-overload]
-    g.add_node("search_node", _timed_search_node)  # type: ignore[call-overload]
-    g.add_node("read_and_extract_node", _timed_read_and_extract_node)  # type: ignore[call-overload]
-    g.add_node("draft_node", _timed_draft_node)  # type: ignore[call-overload]
-    g.add_node("qa_evaluator_node", _timed_qa_evaluator_node)  # type: ignore[call-overload]
+    g.add_node("planner_agent", _timed_planner_agent)  # type: ignore[call-overload]
+    g.add_node("retriever_agent", _timed_retriever_agent)  # type: ignore[call-overload]
+    g.add_node("extractor_agent", _timed_extractor_agent)  # type: ignore[call-overload]
+    g.add_node("writer_agent", _timed_writer_agent)  # type: ignore[call-overload]
+    g.add_node("critic_agent", _timed_critic_agent)  # type: ignore[call-overload]
 
     g.add_conditional_edges(START, _entry_router)
-    g.add_edge("plan_node", "search_node")
-    g.add_edge("search_node", "read_and_extract_node")
-    g.add_edge("read_and_extract_node", "draft_node")
-    g.add_edge("draft_node", "qa_evaluator_node")
-    g.add_conditional_edges("qa_evaluator_node", _qa_router)
+    g.add_edge("planner_agent", "retriever_agent")
+    g.add_edge("retriever_agent", "extractor_agent")
+    g.add_edge("extractor_agent", "writer_agent")
+    g.add_edge("writer_agent", "critic_agent")
+    g.add_conditional_edges("critic_agent", _qa_router)
     return g
 
 
@@ -89,6 +89,6 @@ async def create_workflow(
         graph = _build_graph()
         compiled = graph.compile(
             checkpointer=saver,
-            interrupt_before=["read_and_extract_node"],
+            interrupt_before=["extractor_agent"],
         )
         yield compiled

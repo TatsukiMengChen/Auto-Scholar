@@ -286,7 +286,7 @@ class TestSessionsAPI:
         status_resp = await mocked_client.get(f"/api/research/status/{thread_id}")
         assert status_resp.status_code == 200
         status = status_resp.json()
-        assert "read_and_extract_node" in status["next_nodes"]
+        assert "extractor_agent" in status["next_nodes"]
 
         session_resp = await mocked_client.get(f"/api/research/sessions/{thread_id}")
         assert session_resp.status_code == 200

@@ -60,12 +60,14 @@ def _build_conversation_context(
     return "\n".join(lines)
 
 
-async def plan_node(state: AgentState) -> dict[str, Any]:
+async def planner_agent(state: AgentState) -> dict[str, Any]:
     user_query = state["user_query"]
     is_continuation = state.get("is_continuation", False)
     messages = state.get("messages", [])
 
-    logger.info("plan_node: decomposing query: %s (continuation: %s)", user_query, is_continuation)
+    logger.info(
+        "planner_agent: decomposing query: %s (continuation: %s)", user_query, is_continuation
+    )
 
     system_content = KEYWORD_GENERATION_SYSTEM
 
@@ -84,37 +86,52 @@ async def plan_node(state: AgentState) -> dict[str, Any]:
         response_model=KeywordPlan,
     )
     elapsed = time.perf_counter() - start_time
-    logger.info("plan_node: LLM call completed in %.2fs", elapsed)
+    logger.info("planner_agent: LLM call completed in %.2fs", elapsed)
 
     keywords = result.keywords[:MAX_KEYWORDS]
     log_msg = f"Generated {len(keywords)} search keywords: {keywords}"
-    logger.info("plan_node: %s", log_msg)
-    return {"search_keywords": keywords, "logs": [log_msg]}
+    logger.info("planner_agent: %s", log_msg)
+    return {
+        "search_keywords": keywords,
+        "logs": [log_msg],
+        "current_agent": "planner",
+        "agent_handoffs": ["→planner"],
+    }
 
 
-async def search_node(state: AgentState) -> dict[str, Any]:
+async def retriever_agent(state: AgentState) -> dict[str, Any]:
     keywords = state.get("search_keywords", [])
     if not keywords:
         log_msg = "No search keywords available, skipping search"
-        logger.warning("search_node: %s", log_msg)
-        return {"candidate_papers": [], "logs": [log_msg]}
+        logger.warning("retriever_agent: %s", log_msg)
+        return {
+            "candidate_papers": [],
+            "logs": [log_msg],
+            "current_agent": "retriever",
+            "agent_handoffs": ["planner→retriever"],
+        }
 
     sources = state.get("search_sources", [PaperSource.SEMANTIC_SCHOLAR])
     source_names = [s.value for s in sources]
 
-    logger.info("search_node: searching %d keywords across %s", len(keywords), source_names)
+    logger.info("retriever_agent: searching %d keywords across %s", len(keywords), source_names)
     start_time = time.perf_counter()
     papers = await search_papers_multi_source(
         keywords, sources=sources, limit_per_query=PAPERS_PER_QUERY
     )
     elapsed = time.perf_counter() - start_time
-    logger.info("search_node: paper search completed in %.2fs", elapsed)
+    logger.info("retriever_agent: paper search completed in %.2fs", elapsed)
 
     log_msg = (
         f"Found {len(papers)} unique papers across {len(keywords)} queries from {source_names}"
     )
-    logger.info("search_node: %s", log_msg)
-    return {"candidate_papers": papers, "logs": [log_msg]}
+    logger.info("retriever_agent: %s", log_msg)
+    return {
+        "candidate_papers": papers,
+        "logs": [log_msg],
+        "current_agent": "retriever",
+        "agent_handoffs": ["planner→retriever"],
+    }
 
 
 async def _extract_contribution(paper: PaperMetadata) -> PaperMetadata:
@@ -139,16 +156,21 @@ async def _extract_contribution(paper: PaperMetadata) -> PaperMetadata:
     return paper.model_copy(update={"core_contribution": result.core_contribution})
 
 
-async def read_and_extract_node(state: AgentState) -> dict[str, Any]:
+async def extractor_agent(state: AgentState) -> dict[str, Any]:
     candidates = state.get("candidate_papers", [])
     approved = [p for p in candidates if p.is_approved]
 
     if not approved:
         log_msg = "No approved papers to process"
-        logger.warning("read_and_extract_node: %s", log_msg)
-        return {"approved_papers": [], "logs": [log_msg]}
+        logger.warning("extractor_agent: %s", log_msg)
+        return {
+            "approved_papers": [],
+            "logs": [log_msg],
+            "current_agent": "extractor",
+            "agent_handoffs": ["retriever→extractor"],
+        }
 
-    logger.info("read_and_extract_node: extracting contributions from %d papers", len(approved))
+    logger.info("extractor_agent: extracting contributions from %d papers", len(approved))
 
     semaphore = asyncio.Semaphore(LLM_CONCURRENCY)
 
@@ -176,14 +198,14 @@ async def read_and_extract_node(state: AgentState) -> dict[str, Any]:
     log_msg = f"Extracted contributions from {len(extracted)} papers"
     if failed_count:
         log_msg += f" ({failed_count} failed - check logs for details)"
-    logger.info("read_and_extract_node: %s", log_msg)
+    logger.info("extractor_agent: %s", log_msg)
 
     logs = [log_msg]
 
     papers_needing_pdf = [p for p in extracted if not p.pdf_url]
     if papers_needing_pdf:
         logger.info(
-            "read_and_extract_node: enriching %d papers with full-text URLs",
+            "extractor_agent: enriching %d papers with full-text URLs",
             len(papers_needing_pdf),
         )
         try:
@@ -192,13 +214,18 @@ async def read_and_extract_node(state: AgentState) -> dict[str, Any]:
             )
             pdf_count = sum(1 for p in enriched if p.pdf_url)
             pdf_log = f"Found full-text PDFs for {pdf_count}/{len(enriched)} papers"
-            logger.info("read_and_extract_node: %s", pdf_log)
+            logger.info("extractor_agent: %s", pdf_log)
             logs.append(pdf_log)
             extracted = enriched
         except Exception as e:
-            logger.warning("read_and_extract_node: full-text enrichment failed: %s", e)
+            logger.warning("extractor_agent: full-text enrichment failed: %s", e)
 
-    return {"approved_papers": extracted, "logs": logs}
+    return {
+        "approved_papers": extracted,
+        "logs": logs,
+        "current_agent": "extractor",
+        "agent_handoffs": ["retriever→extractor"],
+    }
 
 
 def _build_paper_context(papers: list[PaperMetadata]) -> str:
@@ -216,7 +243,7 @@ def _build_paper_context(papers: list[PaperMetadata]) -> str:
     return "\n\n".join(lines)
 
 
-async def draft_node(state: AgentState) -> dict[str, Any]:
+async def writer_agent(state: AgentState) -> dict[str, Any]:
     approved = state.get("approved_papers", [])
     papers_with_contributions = [p for p in approved if p.core_contribution]
     output_language = state.get("output_language", "en")
@@ -225,8 +252,13 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
 
     if not papers_with_contributions:
         log_msg = "No papers with extracted contributions, cannot draft review"
-        logger.warning("draft_node: %s", log_msg)
-        return {"final_draft": None, "logs": [log_msg]}
+        logger.warning("writer_agent: %s", log_msg)
+        return {
+            "final_draft": None,
+            "logs": [log_msg],
+            "current_agent": "writer",
+            "agent_handoffs": ["extractor→writer"],
+        }
 
     paper_context = _build_paper_context(papers_with_contributions)
     user_query = state["user_query"]
@@ -235,12 +267,12 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
 
     is_retry = retry_count > 0 and qa_errors
     if is_retry:
-        logger.info("draft_node: RETRY %d - fixing %d QA errors", retry_count, len(qa_errors))
+        logger.info("writer_agent: RETRY %d - fixing %d QA errors", retry_count, len(qa_errors))
     elif is_continuation:
-        logger.info("draft_node: CONTINUATION - updating draft based on: %s", user_query[:100])
+        logger.info("writer_agent: CONTINUATION - updating draft based on: %s", user_query[:100])
     else:
         logger.info(
-            "draft_node: drafting review with %d papers in %s",
+            "writer_agent: drafting review with %d papers in %s",
             len(papers_with_contributions),
             output_language,
         )
@@ -299,7 +331,7 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
     out_of_bounds = [idx for idx in all_cited_indices if idx < 1 or idx > num_papers]
     if out_of_bounds:
         logger.warning(
-            "draft_node: Found out-of-bounds citations: %s (valid range: 1-%d)",
+            "writer_agent: Found out-of-bounds citations: %s (valid range: 1-%d)",
             sorted(out_of_bounds),
             num_papers,
         )
@@ -307,16 +339,26 @@ async def draft_node(state: AgentState) -> dict[str, Any]:
     log_msg = f"Draft complete: '{draft.title}' with {len(draft.sections)} sections, {len(all_cited_indices)} unique citations"
     if is_retry:
         log_msg += f" (retry {retry_count})"
-    logger.info("draft_node: %s", log_msg)
-    return {"final_draft": draft, "logs": [log_msg]}
+    logger.info("writer_agent: %s", log_msg)
+    return {
+        "final_draft": draft,
+        "logs": [log_msg],
+        "current_agent": "writer",
+        "agent_handoffs": ["extractor→writer"] if not is_retry else ["critic→writer"],
+    }
 
 
-async def qa_evaluator_node(state: AgentState) -> dict[str, Any]:
+async def critic_agent(state: AgentState) -> dict[str, Any]:
     draft = state.get("final_draft")
     if draft is None:
         log_msg = "QA skipped: no draft to evaluate"
-        logger.warning("qa_evaluator_node: %s", log_msg)
-        return {"qa_errors": [], "logs": [log_msg]}
+        logger.warning("critic_agent: %s", log_msg)
+        return {
+            "qa_errors": [],
+            "logs": [log_msg],
+            "current_agent": "critic",
+            "agent_handoffs": ["writer→critic"],
+        }
 
     approved = state.get("approved_papers", [])
     num_papers = len(approved)
@@ -350,9 +392,21 @@ async def qa_evaluator_node(state: AgentState) -> dict[str, Any]:
     if errors:
         retry_count += 1
         log_msg = f"QA failed with {len(errors)} errors (retry {retry_count}/3): {errors[:3]}"
-        logger.warning("qa_evaluator_node: %s", log_msg)
-        return {"qa_errors": errors, "retry_count": retry_count, "logs": [log_msg]}
+        logger.warning("critic_agent: %s", log_msg)
+        return {
+            "qa_errors": errors,
+            "retry_count": retry_count,
+            "logs": [log_msg],
+            "current_agent": "critic",
+            "agent_handoffs": ["writer→critic"],
+        }
 
     log_msg = "QA passed: all citations verified"
-    logger.info("qa_evaluator_node: %s", log_msg)
-    return {"qa_errors": [], "retry_count": retry_count, "logs": [log_msg]}
+    logger.info("critic_agent: %s", log_msg)
+    return {
+        "qa_errors": [],
+        "retry_count": retry_count,
+        "logs": [log_msg],
+        "current_agent": "critic",
+        "agent_handoffs": ["writer→critic"],
+    }

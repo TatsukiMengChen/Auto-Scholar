@@ -40,7 +40,7 @@ async def client():
 
 @pytest.mark.asyncio
 async def test_full_workflow(client: httpx.AsyncClient):
-    # Step 1: Start research — runs plan_node + search_node, then interrupts
+    # Step 1: Start research — runs planner_agent + retriever_agent, then interrupts
     resp = await client.post(
         "/api/research/start",
         json={"query": "transformer architecture in natural language processing"},
@@ -62,12 +62,12 @@ async def test_full_workflow(client: httpx.AsyncClient):
     print(f"Candidates: {len(candidate_papers)}")
     print(f"Logs: {logs}")
 
-    # Step 2: Check status — should be waiting at read_and_extract_node
+    # Step 2: Check status — should be waiting at extractor_agent
     resp = await client.get(f"/api/research/status/{thread_id}")
     assert resp.status_code == 200
     status = resp.json()
-    assert "read_and_extract_node" in status["next_nodes"], (
-        f"Should be waiting at read_and_extract_node, got: {status['next_nodes']}"
+    assert "extractor_agent" in status["next_nodes"], (
+        f"Should be waiting at extractor_agent, got: {status['next_nodes']}"
     )
 
     print("\n=== STATUS ===")

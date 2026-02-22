@@ -113,6 +113,8 @@ async def start_research(req: StartRequest):
                     "logs": [],
                     "messages": [initial_message],
                     "is_continuation": False,
+                    "current_agent": "",
+                    "agent_handoffs": [],
                 },
                 config=config,
             ),
@@ -192,7 +194,7 @@ async def approve_papers(req: ApproveRequest):
     if not snapshot.values:
         raise HTTPException(status_code=404, detail=f"Thread {req.thread_id} not found")
 
-    if "read_and_extract_node" not in (snapshot.next or ()):
+    if "extractor_agent" not in (snapshot.next or ()):
         raise HTTPException(
             status_code=400,
             detail=f"Thread {req.thread_id} is not waiting for approval. Next: {snapshot.next}",
