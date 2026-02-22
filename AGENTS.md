@@ -14,10 +14,12 @@ python -m py_compile app/schemas.py          # Compile check single file
 pytest tests/ -v                             # Run all tests
 pytest tests/test_integration.py -v          # Run single file
 pytest tests/test_integration.py::test_full_workflow -v  # Run single test
+pytest tests/test_exporter.py::test_export_markdown -v   # Another example
 pytest -x                                    # Stop on first failure
 
 # Frontend
 cd frontend && npm install                   # Install deps
+cd frontend && npm run build                 # Production build
 cd frontend && npx tsc --noEmit              # Type check
 cd frontend && npm run lint                  # ESLint
 
