@@ -1,6 +1,9 @@
-from collections.abc import AsyncIterator
+import logging
+import time
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Literal
+from functools import wraps
+from typing import Any, Literal
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import START, StateGraph
@@ -15,7 +18,30 @@ from backend.nodes import (
 )
 from backend.state import AgentState
 
+logger = logging.getLogger(__name__)
+
 MAX_RETRY_COUNT = 3
+
+
+def _timed_node(
+    func: Callable[[AgentState], Any],
+) -> Callable[[AgentState], Any]:
+    @wraps(func)
+    async def wrapper(state: AgentState) -> Any:
+        start = time.perf_counter()
+        result = await func(state)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("%s completed in %.0fms", func.__name__, elapsed_ms)
+        return result
+
+    return wrapper
+
+
+_timed_plan_node = _timed_node(plan_node)
+_timed_search_node = _timed_node(search_node)
+_timed_read_and_extract_node = _timed_node(read_and_extract_node)
+_timed_draft_node = _timed_node(draft_node)
+_timed_qa_evaluator_node = _timed_node(qa_evaluator_node)
 
 
 def _entry_router(state: AgentState) -> Literal["plan_node", "draft_node"]:
@@ -40,11 +66,11 @@ def _qa_router(state: AgentState) -> Literal["draft_node", "__end__"]:
 
 def _build_graph() -> StateGraph:
     g = StateGraph(AgentState)
-    g.add_node("plan_node", plan_node)
-    g.add_node("search_node", search_node)
-    g.add_node("read_and_extract_node", read_and_extract_node)
-    g.add_node("draft_node", draft_node)
-    g.add_node("qa_evaluator_node", qa_evaluator_node)
+    g.add_node("plan_node", _timed_plan_node)
+    g.add_node("search_node", _timed_search_node)
+    g.add_node("read_and_extract_node", _timed_read_and_extract_node)
+    g.add_node("draft_node", _timed_draft_node)
+    g.add_node("qa_evaluator_node", _timed_qa_evaluator_node)
 
     g.add_conditional_edges(START, _entry_router)
     g.add_edge("plan_node", "search_node")
