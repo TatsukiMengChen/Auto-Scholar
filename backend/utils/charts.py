@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from app.schemas import PaperMetadata
+from backend.schemas import PaperMetadata
 
 
 def generate_year_trend_chart(papers: list[PaperMetadata]) -> str | None:

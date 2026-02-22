@@ -8,8 +8,8 @@ import aiohttp
 from dotenv import load_dotenv
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from app.schemas import PaperMetadata, PaperSource
-from app.utils.http_pool import get_session
+from backend.schemas import PaperMetadata, PaperSource
+from backend.utils.http_pool import get_session
 
 load_dotenv()
 

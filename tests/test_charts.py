@@ -1,8 +1,8 @@
 import pytest
 import base64
 
-from app.schemas import PaperMetadata, PaperSource
-from app.utils.charts import (
+from backend.schemas import PaperMetadata, PaperSource
+from backend.utils.charts import (
     generate_year_trend_chart,
     generate_source_distribution_chart,
     generate_author_frequency_chart,

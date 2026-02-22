@@ -11,8 +11,8 @@ pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 @pytest_asyncio.fixture
 async def client():
-    from app.main import app
-    from app.workflow import create_workflow
+    from backend.main import app
+    from backend.workflow import create_workflow
     from contextlib import asynccontextmanager
 
     db_path = f"test_checkpoints_{uuid.uuid4().hex[:8]}.db"

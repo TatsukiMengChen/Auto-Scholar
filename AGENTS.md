@@ -8,7 +8,7 @@
 # Backend
 pip install -r requirements.txt              # Install deps
 find app -name '*.py' -exec python -m py_compile {} +  # Compile check all
-python -m py_compile app/schemas.py          # Compile check single file
+python -m py_compile backend/schemas.py          # Compile check single file
 
 # Backend tests (pytest)
 pytest tests/ -v                             # Run all tests
@@ -37,7 +37,7 @@ cd frontend && npm run test:e2e              # Run E2E tests (playwright)
 
 ```
 auto-scholar/
-├── app/                    # FastAPI + LangGraph backend
+├── backend/                    # FastAPI + LangGraph backend
 │   ├── main.py            # REST endpoints (start, stream, approve, status, export, sessions)
 │   ├── workflow.py        # LangGraph graph + QA retry router
 │   ├── nodes.py           # 5 workflow nodes (plan, search, extract, draft, QA)
@@ -50,7 +50,7 @@ auto-scholar/
 │       └── exporter.py    # Markdown/DOCX export
 ├── frontend/              # Next.js 16 + React 19
 │   └── src/
-│       ├── app/           # App router (page.tsx, layout.tsx)
+│       ├── backend/           # App router (page.tsx, layout.tsx)
 │       ├── components/    # UI components (console/, workspace/, approval/, ui/)
 │       ├── store/         # Zustand state (research.ts)
 │       ├── lib/api/       # API client

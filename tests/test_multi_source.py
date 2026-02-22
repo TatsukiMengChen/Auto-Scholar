@@ -3,8 +3,8 @@ import pytest_asyncio
 import aiohttp
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from app.schemas import PaperMetadata, PaperSource
-from app.utils.scholar_api import (
+from backend.schemas import PaperMetadata, PaperSource
+from backend.utils.scholar_api import (
     search_arxiv,
     search_pubmed,
     search_semantic_scholar,
@@ -204,7 +204,7 @@ class TestSearchArxiv:
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_response)
 
-        with patch("app.utils.scholar_api.get_session", return_value=mock_session):
+        with patch("backend.utils.scholar_api.get_session", return_value=mock_session):
             papers = await search_arxiv(["deep learning"], limit_per_query=10)
             
             assert len(papers) == 2
@@ -230,7 +230,7 @@ class TestSearchPubMed:
         mock_session = MagicMock()
         mock_session.get = MagicMock(side_effect=[mock_esearch_response, mock_esummary_response])
 
-        with patch("app.utils.scholar_api.get_session", return_value=mock_session):
+        with patch("backend.utils.scholar_api.get_session", return_value=mock_session):
             papers = await search_pubmed(["cancer treatment"], limit_per_query=10)
             
             assert len(papers) == 2
@@ -272,9 +272,9 @@ class TestMultiSourceSearch:
             )
         ]
 
-        with patch("app.utils.scholar_api.search_arxiv", return_value=arxiv_papers):
-            with patch("app.utils.scholar_api.search_pubmed", return_value=pubmed_papers):
-                with patch("app.utils.scholar_api.search_semantic_scholar", return_value=ss_papers):
+        with patch("backend.utils.scholar_api.search_arxiv", return_value=arxiv_papers):
+            with patch("backend.utils.scholar_api.search_pubmed", return_value=pubmed_papers):
+                with patch("backend.utils.scholar_api.search_semantic_scholar", return_value=ss_papers):
                     papers = await search_papers_multi_source(
                         ["test query"],
                         sources=[PaperSource.SEMANTIC_SCHOLAR, PaperSource.ARXIV, PaperSource.PUBMED],
@@ -299,7 +299,7 @@ class TestMultiSourceSearch:
             )
         ]
 
-        with patch("app.utils.scholar_api.search_semantic_scholar", return_value=ss_papers):
+        with patch("backend.utils.scholar_api.search_semantic_scholar", return_value=ss_papers):
             papers = await search_papers_multi_source(
                 ["test"],
                 sources=[PaperSource.SEMANTIC_SCHOLAR],
@@ -327,8 +327,8 @@ class TestMultiSourceSearch:
             source=PaperSource.SEMANTIC_SCHOLAR,
         )
 
-        with patch("app.utils.scholar_api.search_arxiv", return_value=[arxiv_paper]):
-            with patch("app.utils.scholar_api.search_semantic_scholar", return_value=[ss_paper]):
+        with patch("backend.utils.scholar_api.search_arxiv", return_value=[arxiv_paper]):
+            with patch("backend.utils.scholar_api.search_semantic_scholar", return_value=[ss_paper]):
                 papers = await search_papers_multi_source(
                     ["test"],
                     sources=[PaperSource.SEMANTIC_SCHOLAR, PaperSource.ARXIV],
@@ -355,7 +355,7 @@ class TestMultiSourceSearch:
             )
         ]
 
-        with patch("app.utils.scholar_api.search_semantic_scholar", return_value=ss_papers):
+        with patch("backend.utils.scholar_api.search_semantic_scholar", return_value=ss_papers):
             papers = await search_papers_multi_source(["test"])
             
             assert len(papers) == 1

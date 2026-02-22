@@ -5,7 +5,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
 
-from app.schemas import CitationStyle, DraftOutput, PaperMetadata
+from backend.schemas import CitationStyle, DraftOutput, PaperMetadata
 
 
 class ExportFormat(StrEnum):

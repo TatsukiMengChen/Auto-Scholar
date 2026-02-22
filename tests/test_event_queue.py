@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from app.utils.event_queue import StreamingEventQueue
+from backend.utils.event_queue import StreamingEventQueue
 
 
 @pytest.mark.asyncio

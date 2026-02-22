@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from app.schemas import (
+from backend.schemas import (
     CitationStyle,
     ContinueRequest,
     ContinueResponse,
@@ -24,11 +24,11 @@ from app.schemas import (
     SessionSummary,
     StartRequest,
 )
-from app.utils.charts import generate_all_charts
-from app.utils.event_queue import StreamingEventQueue
-from app.utils.exporter import ExportFormat, export_to_docx, export_to_markdown
-from app.utils.http_pool import close_session
-from app.workflow import create_workflow
+from backend.utils.charts import generate_all_charts
+from backend.utils.event_queue import StreamingEventQueue
+from backend.utils.exporter import ExportFormat, export_to_docx, export_to_markdown
+from backend.utils.http_pool import close_session
+from backend.workflow import create_workflow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

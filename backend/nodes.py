@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.constants import (
+from backend.constants import (
     FULLTEXT_CONCURRENCY,
     LLM_CONCURRENCY,
     MAX_CONVERSATION_TURNS,
@@ -13,7 +13,7 @@ from app.constants import (
     PAPERS_PER_QUERY,
     get_draft_max_tokens,
 )
-from app.prompts import (
+from backend.prompts import (
     CONTRIBUTION_EXTRACTION_SYSTEM,
     CONTRIBUTION_EXTRACTION_USER,
     DRAFT_GENERATION_SYSTEM,
@@ -23,11 +23,17 @@ from app.prompts import (
     KEYWORD_GENERATION_CONTINUATION,
     KEYWORD_GENERATION_SYSTEM,
 )
-from app.schemas import ConversationMessage, DraftOutput, MessageRole, PaperMetadata, PaperSource
-from app.state import AgentState
-from app.utils.fulltext_api import enrich_papers_with_fulltext
-from app.utils.llm_client import structured_completion
-from app.utils.scholar_api import search_papers_multi_source
+from backend.schemas import (
+    ConversationMessage,
+    DraftOutput,
+    MessageRole,
+    PaperMetadata,
+    PaperSource,
+)
+from backend.state import AgentState
+from backend.utils.fulltext_api import enrich_papers_with_fulltext
+from backend.utils.llm_client import structured_completion
+from backend.utils.scholar_api import search_papers_multi_source
 
 logger = logging.getLogger(__name__)
 

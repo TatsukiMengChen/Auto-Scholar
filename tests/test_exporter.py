@@ -1,7 +1,7 @@
 import pytest
 
-from app.schemas import DraftOutput, ReviewSection, PaperMetadata, CitationStyle
-from app.utils.exporter import export_to_markdown, export_to_docx, format_citation, format_references
+from backend.schemas import DraftOutput, ReviewSection, PaperMetadata, CitationStyle
+from backend.utils.exporter import export_to_markdown, export_to_docx, format_citation, format_references
 
 
 @pytest.fixture

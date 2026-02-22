@@ -5,7 +5,7 @@ import uuid
 import os
 from dotenv import load_dotenv
 
-from app.schemas import DraftOutput, ReviewSection, PaperMetadata
+from backend.schemas import DraftOutput, ReviewSection, PaperMetadata
 
 load_dotenv()
 
@@ -14,8 +14,8 @@ pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 @pytest_asyncio.fixture
 async def client():
-    from app.main import app
-    from app.workflow import create_workflow
+    from backend.main import app
+    from backend.workflow import create_workflow
     from contextlib import asynccontextmanager
 
     db_path = f"test_phase1_{uuid.uuid4().hex[:8]}.db"
@@ -39,8 +39,8 @@ async def client():
 
 @pytest_asyncio.fixture
 async def mocked_client():
-    from app.main import app
-    from app.workflow import create_workflow
+    from backend.main import app
+    from backend.workflow import create_workflow
     from contextlib import asynccontextmanager
     from unittest.mock import patch
 
@@ -59,7 +59,7 @@ async def mocked_client():
 
     async with test_lifespan(app):
         with patch(
-            "app.utils.scholar_api.search_papers_multi_source",
+            "backend.utils.scholar_api.search_papers_multi_source",
             new=AsyncMock(return_value=all_papers),
         ):
             async with httpx.AsyncClient(

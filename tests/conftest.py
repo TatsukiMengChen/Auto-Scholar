@@ -12,9 +12,9 @@ Usage:
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.schemas import PaperMetadata, PaperSource
-from app.utils.http_pool import close_session
-import app.utils.http_pool as http_pool
+from backend.schemas import PaperMetadata, PaperSource
+from backend.utils.http_pool import close_session
+import backend.utils.http_pool as http_pool
 
 
 @pytest.fixture(autouse=True)
@@ -123,22 +123,22 @@ def mock_external_apis_success(mock_paper_data):
     """Fixture that patches all external API clients with successful responses.
 
     This fixture patches:
-    - app.utils.scholar_api.search_semantic_scholar
-    - app.utils.scholar_api.search_arxiv
-    - app.utils.scholar_api.search_pubmed
-    - app.utils.scholar_api.search_papers_multi_source
+    - backend.utils.scholar_api.search_semantic_scholar
+    - backend.utils.scholar_api.search_arxiv
+    - backend.utils.scholar_api.search_pubmed
+    - backend.utils.scholar_api.search_papers_multi_source
 
     Yields:
         dict: Mock objects for each source (for asserting call counts)
     """
     with patch(
-        "app.utils.scholar_api.search_semantic_scholar",
+        "backend.utils.scholar_api.search_semantic_scholar",
         new=AsyncMock(return_value=mock_paper_data["semantic"]),
     ) as m_sem, patch(
-        "app.utils.scholar_api.search_arxiv",
+        "backend.utils.scholar_api.search_arxiv",
         new=AsyncMock(return_value=mock_paper_data["arxiv"]),
     ) as m_arx, patch(
-        "app.utils.scholar_api.search_pubmed",
+        "backend.utils.scholar_api.search_pubmed",
         new=AsyncMock(return_value=mock_paper_data["pubmed"]),
     ) as m_pub:
         yield {"semantic": m_sem, "arxiv": m_arx, "pubmed": m_pub}
@@ -154,13 +154,13 @@ def mock_external_apis_empty(mock_paper_data):
         dict: Mock objects for each source (for asserting call counts)
     """
     with patch(
-        "app.utils.scholar_api.search_semantic_scholar",
+        "backend.utils.scholar_api.search_semantic_scholar",
         new=AsyncMock(return_value=[]),
     ) as m_sem, patch(
-        "app.utils.scholar_api.search_arxiv",
+        "backend.utils.scholar_api.search_arxiv",
         new=AsyncMock(return_value=[]),
     ) as m_arx, patch(
-        "app.utils.scholar_api.search_pubmed",
+        "backend.utils.scholar_api.search_pubmed",
         new=AsyncMock(return_value=[]),
     ) as m_pub:
         yield {"semantic": m_sem, "arxiv": m_arx, "pubmed": m_pub}
@@ -177,13 +177,13 @@ def mock_external_apis_partial_failure(mock_paper_data):
         dict: Mock objects for each source (for asserting call counts)
     """
     with patch(
-        "app.utils.scholar_api.search_semantic_scholar",
+        "backend.utils.scholar_api.search_semantic_scholar",
         new=AsyncMock(return_value=mock_paper_data["semantic"]),
     ) as m_sem, patch(
-        "app.utils.scholar_api.search_arxiv",
+        "backend.utils.scholar_api.search_arxiv",
         new=AsyncMock(return_value=[]),  # arXiv returns empty
     ) as m_arx, patch(
-        "app.utils.scholar_api.search_pubmed",
+        "backend.utils.scholar_api.search_pubmed",
         new=AsyncMock(return_value=mock_paper_data["pubmed"]),
     ) as m_pub:
         yield {"semantic": m_sem, "arxiv": m_arx, "pubmed": m_pub}

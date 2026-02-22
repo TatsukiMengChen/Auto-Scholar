@@ -3,7 +3,7 @@ from typing import Annotated
 
 from typing_extensions import TypedDict
 
-from app.schemas import ConversationMessage, DraftOutput, PaperMetadata, PaperSource
+from backend.schemas import ConversationMessage, DraftOutput, PaperMetadata, PaperSource
 
 
 class AgentState(TypedDict):

@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from app.schemas import PaperMetadata, PaperSource
-from app.utils.fulltext_api import (
+from backend.schemas import PaperMetadata, PaperSource
+from backend.utils.fulltext_api import (
     resolve_pdf_url,
     enrich_paper_with_fulltext,
     enrich_papers_with_fulltext,
@@ -113,7 +113,7 @@ async def test_resolve_pdf_url_with_doi():
         "best_oa_location": {"pdf_url": "https://example.com/paper.pdf"}
     }
     
-    with patch("app.utils.fulltext_api._fetch_json", new_callable=AsyncMock) as mock_fetch:
+    with patch("backend.utils.fulltext_api._fetch_json", new_callable=AsyncMock) as mock_fetch:
         mock_fetch.return_value = mock_unpaywall_response
         
         pdf_url, doi = await resolve_pdf_url(
@@ -126,7 +126,7 @@ async def test_resolve_pdf_url_with_doi():
 
 
 async def test_resolve_pdf_url_fallback_to_openalex():
-    with patch("app.utils.fulltext_api._fetch_json", new_callable=AsyncMock) as mock_fetch:
+    with patch("backend.utils.fulltext_api._fetch_json", new_callable=AsyncMock) as mock_fetch:
         mock_fetch.side_effect = [
             None,
             {"open_access": {"oa_url": "https://openalex.com/paper.pdf"}},
@@ -141,7 +141,7 @@ async def test_resolve_pdf_url_fallback_to_openalex():
 
 
 async def test_resolve_pdf_url_title_search():
-    with patch("app.utils.fulltext_api._fetch_json", new_callable=AsyncMock) as mock_fetch:
+    with patch("backend.utils.fulltext_api._fetch_json", new_callable=AsyncMock) as mock_fetch:
         mock_fetch.return_value = {
             "results": [
                 {
@@ -162,7 +162,7 @@ async def test_resolve_pdf_url_title_search():
 
 
 async def test_enrich_paper_with_fulltext(sample_paper: PaperMetadata):
-    with patch("app.utils.fulltext_api.resolve_pdf_url", new_callable=AsyncMock) as mock_resolve:
+    with patch("backend.utils.fulltext_api.resolve_pdf_url", new_callable=AsyncMock) as mock_resolve:
         mock_resolve.return_value = ("https://example.com/enriched.pdf", "10.1234/test")
         
         enriched = await enrich_paper_with_fulltext(sample_paper)
@@ -174,7 +174,7 @@ async def test_enrich_paper_with_fulltext(sample_paper: PaperMetadata):
 async def test_enrich_paper_already_has_pdf(sample_paper: PaperMetadata):
     paper_with_pdf = sample_paper.model_copy(update={"pdf_url": "https://existing.com/paper.pdf"})
     
-    with patch("app.utils.fulltext_api.resolve_pdf_url", new_callable=AsyncMock) as mock_resolve:
+    with patch("backend.utils.fulltext_api.resolve_pdf_url", new_callable=AsyncMock) as mock_resolve:
         enriched = await enrich_paper_with_fulltext(paper_with_pdf)
         
         mock_resolve.assert_not_called()
@@ -203,7 +203,7 @@ async def test_enrich_papers_with_fulltext():
         ),
     ]
     
-    with patch("app.utils.fulltext_api.resolve_pdf_url", new_callable=AsyncMock) as mock_resolve:
+    with patch("backend.utils.fulltext_api.resolve_pdf_url", new_callable=AsyncMock) as mock_resolve:
         mock_resolve.side_effect = [
             ("https://example.com/p1.pdf", "10.1/p1"),
             (None, None),
