@@ -111,3 +111,41 @@ CITATION RULES:
 
 Write 2-4 paragraphs with proper academic tone and citations.\
 """
+
+CLAIM_EXTRACTION_SYSTEM = """\
+Extract atomic claims from the given text. Each claim should be:
+- A single factual statement that can be independently verified
+- Contains at least one citation reference {{cite:N}}
+- Self-contained (understandable without surrounding context)
+
+Split compound sentences into separate claims when they make distinct assertions.
+Preserve the exact citation markers {{cite:N}} from the original text.
+Output claims in the same language as the input text.\
+"""
+
+CLAIM_EXTRACTION_USER = """\
+Section: {section_title}
+Text:
+{section_content}\
+"""
+
+CLAIM_VERIFICATION_SYSTEM = """\
+Determine if the cited paper's content supports the given claim.
+
+LABELS:
+- entails: The paper content directly supports or implies the claim
+- insufficient: The paper content is related but doesn't provide enough evidence
+- contradicts: The paper content contradicts or refutes the claim
+
+Be strict: only mark "entails" if the evidence clearly supports the claim.
+If the claim makes a stronger assertion than the evidence supports, mark "insufficient".\
+"""
+
+CLAIM_VERIFICATION_USER = """\
+CLAIM: {claim_text}
+
+CITED PAPER [{citation_index}]:
+Title: {paper_title}
+Abstract: {paper_abstract}
+Core Contribution: {paper_contribution}\
+"""
