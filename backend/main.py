@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
+from backend.constants import WORKFLOW_TIMEOUT_SECONDS
 from backend.schemas import (
     CitationStyle,
     ContinueRequest,
@@ -95,24 +96,31 @@ async def start_research(req: StartRequest):
         metadata={"action": "start_research"},
     )
 
-    result = await graph.ainvoke(
-        {
-            "task_id": thread_id,
-            "user_query": req.query,
-            "output_language": req.language,
-            "search_sources": sources,
-            "search_keywords": [],
-            "candidate_papers": [],
-            "approved_papers": [],
-            "final_draft": None,
-            "qa_errors": [],
-            "retry_count": 0,
-            "logs": [],
-            "messages": [initial_message],
-            "is_continuation": False,
-        },
-        config=config,
-    )
+    try:
+        result = await asyncio.wait_for(
+            graph.ainvoke(
+                {
+                    "task_id": thread_id,
+                    "user_query": req.query,
+                    "output_language": req.language,
+                    "search_sources": sources,
+                    "search_keywords": [],
+                    "candidate_papers": [],
+                    "approved_papers": [],
+                    "final_draft": None,
+                    "qa_errors": [],
+                    "retry_count": 0,
+                    "logs": [],
+                    "messages": [initial_message],
+                    "is_continuation": False,
+                },
+                config=config,
+            ),
+            timeout=WORKFLOW_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        logger.error("Workflow timeout after %ds for thread %s", WORKFLOW_TIMEOUT_SECONDS, thread_id)
+        raise HTTPException(status_code=504, detail="研究超时，请缩小搜索范围后重试")
 
     return StartResponse(
         thread_id=thread_id,
@@ -208,7 +216,16 @@ async def approve_papers(req: ApproveRequest):
         "Approved %d papers for thread %s, resuming workflow", approved_count, req.thread_id
     )
 
-    result = await graph.ainvoke(None, config=config)
+    try:
+        result = await asyncio.wait_for(
+            graph.ainvoke(None, config=config),
+            timeout=WORKFLOW_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        logger.error(
+            "Workflow timeout after %ds for thread %s", WORKFLOW_TIMEOUT_SECONDS, req.thread_id
+        )
+        raise HTTPException(status_code=504, detail="研究超时，请缩小搜索范围后重试")
 
     all_logs = result.get("logs", [])
     new_logs = all_logs[existing_log_count:]
@@ -284,7 +301,16 @@ async def continue_research(req: ContinueRequest):
         as_node="__start__",
     )
 
-    result = await graph.ainvoke(None, config=config)
+    try:
+        result = await asyncio.wait_for(
+            graph.ainvoke(None, config=config),
+            timeout=WORKFLOW_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        logger.error(
+            "Workflow timeout after %ds for thread %s", WORKFLOW_TIMEOUT_SECONDS, req.thread_id
+        )
+        raise HTTPException(status_code=504, detail="研究超时，请缩小搜索范围后重试")
 
     all_logs = result.get("logs", [])
     new_logs = all_logs[existing_log_count:]
