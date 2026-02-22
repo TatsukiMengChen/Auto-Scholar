@@ -7,8 +7,11 @@
 ```bash
 # Backend
 pip install -r requirements.txt              # Install deps
-find app -name '*.py' -exec python -m py_compile {} +  # Compile check all
-python -m py_compile backend/schemas.py          # Compile check single file
+find backend -name '*.py' -exec python -m py_compile {} +  # Compile check all
+python -m py_compile backend/schemas.py      # Compile check single file
+ruff check backend/                          # Lint all
+ruff check backend/main.py                   # Lint single file
+ruff format backend/ --check                 # Check formatting
 
 # Backend tests (pytest)
 pytest tests/ -v                             # Run all tests
@@ -29,7 +32,7 @@ cd frontend && npm test -- src/__tests__/store.test.ts  # Single test file
 cd frontend && npm run test:e2e              # Run E2E tests (playwright)
 
 # DO NOT run these from agents (long-running):
-# uvicorn app.main:app --reload --port 8000
+# uvicorn backend.main:app --reload --port 8000
 # cd frontend && npm run dev
 ```
 
@@ -50,7 +53,7 @@ auto-scholar/
 │       └── exporter.py    # Markdown/DOCX export
 ├── frontend/              # Next.js 16 + React 19
 │   └── src/
-│       ├── backend/           # App router (page.tsx, layout.tsx)
+│       ├── app/           # App router (page.tsx, layout.tsx)
 │       ├── components/    # UI components (console/, workspace/, approval/, ui/)
 │       ├── store/         # Zustand state (research.ts)
 │       ├── lib/api/       # API client
@@ -63,7 +66,7 @@ auto-scholar/
 ## Backend Code Style (Python)
 
 ### Imports
-- Absolute imports only (`from app.schemas import X`, never `from .schemas`)
+- Absolute imports only (`from backend.schemas import X`, never `from .schemas`)
 - Order: stdlib → third-party → local. Blank line between groups.
 
 ### Type Annotations
@@ -157,3 +160,5 @@ auto-scholar/
 ### E2E (playwright)
 - `npm run test:e2e` for headless
 - `npm run test:e2e:ui` for UI mode
+
+When the Write or Edit tool has content size limits, always comply silently. Never suggest bypassing these limits via alternative tools. Never ask the user whether to switch approaches. Complete all chunked operations without commentary.
