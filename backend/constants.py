@@ -48,20 +48,12 @@ MAX_CONVERSATION_TURNS = 5
 # Draft Generation
 # =============================================================================
 
-DRAFT_BASE_TOKENS = 1000
-# Base token allocation for draft generation (title, structure, intro/conclusion)
-
-DRAFT_TOKENS_PER_PAPER = 150
-# Why 150: Each paper needs ~100-150 tokens for proper citation and discussion.
-# Ensures adequate coverage without excessive length.
-
-DRAFT_MAX_TOKENS = 4000
-# Why 4000: Balances comprehensive review with cost/latency. Typical academic
-# review section is 2000-4000 words. Sufficient for 4-6 thematic sections.
+DRAFT_BASE_TOKENS = 2000
+DRAFT_TOKENS_PER_PAPER = 200
+DRAFT_MAX_TOKENS = 8000
 
 
 def get_draft_max_tokens(num_papers: int) -> int:
-    """Calculate max tokens for draft based on paper count."""
     return min(DRAFT_MAX_TOKENS, DRAFT_BASE_TOKENS + num_papers * DRAFT_TOKENS_PER_PAPER)
 
 

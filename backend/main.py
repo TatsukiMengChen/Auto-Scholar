@@ -122,7 +122,16 @@ async def start_research(req: StartRequest):
         logger.error(
             "Workflow timeout after %ds for thread %s", WORKFLOW_TIMEOUT_SECONDS, thread_id
         )
-        raise HTTPException(status_code=504, detail="研究超时，请缩小搜索范围后重试")
+        raise HTTPException(
+            status_code=504,
+            detail=f"工作流超时 ({WORKFLOW_TIMEOUT_SECONDS}s)，请缩小搜索范围后重试",
+        )
+    except Exception as e:
+        logger.exception("Workflow error for thread %s: %s", thread_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"工作流执行错误: {type(e).__name__}: {str(e)[:200]}",
+        )
 
     return StartResponse(
         thread_id=thread_id,
@@ -227,7 +236,16 @@ async def approve_papers(req: ApproveRequest):
         logger.error(
             "Workflow timeout after %ds for thread %s", WORKFLOW_TIMEOUT_SECONDS, req.thread_id
         )
-        raise HTTPException(status_code=504, detail="研究超时，请缩小搜索范围后重试")
+        raise HTTPException(
+            status_code=504,
+            detail=f"处理超时 ({WORKFLOW_TIMEOUT_SECONDS}s)，请减少论文数量后重试",
+        )
+    except Exception as e:
+        logger.exception("Workflow error for thread %s: %s", req.thread_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"处理错误: {type(e).__name__}: {str(e)[:200]}",
+        )
 
     all_logs = result.get("logs", [])
     new_logs = all_logs[existing_log_count:]
@@ -312,7 +330,16 @@ async def continue_research(req: ContinueRequest):
         logger.error(
             "Workflow timeout after %ds for thread %s", WORKFLOW_TIMEOUT_SECONDS, req.thread_id
         )
-        raise HTTPException(status_code=504, detail="研究超时，请缩小搜索范围后重试")
+        raise HTTPException(
+            status_code=504,
+            detail=f"继续研究超时 ({WORKFLOW_TIMEOUT_SECONDS}s)，请稍后重试",
+        )
+    except Exception as e:
+        logger.exception("Workflow error for thread %s: %s", req.thread_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"继续研究错误: {type(e).__name__}: {str(e)[:200]}",
+        )
 
     all_logs = result.get("logs", [])
     new_logs = all_logs[existing_log_count:]

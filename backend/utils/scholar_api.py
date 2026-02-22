@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 import xml.etree.ElementTree as ET
 from typing import Any
 
@@ -43,8 +44,8 @@ class PubMedAPIError(Exception):
 
 @retry(
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    stop=stop_after_attempt(3),
-    retry=retry_if_exception_type((RateLimitError, aiohttp.ClientError)),
+    stop=stop_after_attempt(2),
+    retry=retry_if_exception_type(aiohttp.ClientError),
 )
 async def _fetch_semantic_scholar(
     session: aiohttp.ClientSession,
@@ -66,10 +67,7 @@ async def _fetch_semantic_scholar(
 
     async with session.get(SEMANTIC_SCHOLAR_SEARCH_URL, headers=headers, params=params) as resp:
         if resp.status == 429:
-            retry_after = resp.headers.get("Retry-After", "3")
-            wait_seconds = int(retry_after) if retry_after.isdigit() else 3
-            logger.warning("Rate limited by Semantic Scholar, waiting %ds", wait_seconds)
-            await asyncio.sleep(wait_seconds)
+            logger.warning("Rate limited by Semantic Scholar for query '%s'", query[:50])
             raise RateLimitError("429 Too Many Requests")
         if resp.status != 200:
             text = await resp.text()
@@ -310,20 +308,44 @@ async def search_semantic_scholar(
     limit_per_query: int = 10,
 ) -> list[PaperMetadata]:
     session = await get_session()
-    tasks = [_fetch_semantic_scholar(session, q, limit=limit_per_query, offset=0) for q in queries]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    has_api_key = bool(os.environ.get("SEMANTIC_SCHOLAR_API_KEY"))
+    concurrency = 3 if has_api_key else 2
+    semaphore = asyncio.Semaphore(concurrency)
+    rate_limited = False
+
+    async def fetch_with_limit(query: str) -> list[PaperMetadata]:
+        nonlocal rate_limited
+        if rate_limited:
+            return []
+
+        async with semaphore:
+            try:
+                result = await _fetch_semantic_scholar(
+                    session, query, limit=limit_per_query, offset=0
+                )
+                return [
+                    _parse_semantic_scholar_paper(raw)
+                    for raw in result.get("data", [])
+                    if raw.get("paperId")
+                ]
+            except RateLimitError:
+                rate_limited = True
+                logger.warning("Semantic Scholar rate limited, skipping remaining queries")
+                return []
+            except Exception as e:
+                logger.error("Semantic Scholar search failed for '%s': %s", query, e)
+                return []
+
+    results = await asyncio.gather(*[fetch_with_limit(q) for q in queries])
 
     papers: list[PaperMetadata] = []
     seen_ids: set[str] = set()
-    for r in results:
-        if isinstance(r, BaseException):
-            logger.error("Semantic Scholar search failed: %s", r)
-            continue
-        for raw in r.get("data", []):
-            paper = _parse_semantic_scholar_paper(raw)
-            if paper.paper_id and paper.paper_id not in seen_ids:
+    for paper_list in results:
+        for paper in paper_list:
+            if paper.paper_id not in seen_ids:
                 seen_ids.add(paper.paper_id)
                 papers.append(paper)
+
     return papers
 
 
@@ -443,13 +465,18 @@ async def search_papers_multi_source(
     if not tasks:
         return []
 
+    logger.info("Starting parallel search across %s", source_names)
+    start_time = time.perf_counter()
     results = await asyncio.gather(*tasks, return_exceptions=True)
+    elapsed = time.perf_counter() - start_time
+    logger.info("All source searches completed in %.2fs", elapsed)
 
     for i, r in enumerate(results):
         if isinstance(r, BaseException):
             logger.error("Search from %s failed: %s", source_names[i], r)
             record_failure(source_keys[i])
             continue
+        logger.info("Search from %s returned %d papers", source_names[i], len(r))
         record_success(source_keys[i])
         all_papers.extend(r)
 

@@ -1,12 +1,21 @@
 import json
 import logging
 import os
+import time
 from typing import Any, TypeVar
 
+import httpx
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, ValidationError
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 load_dotenv()
 
@@ -15,6 +24,9 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 _client: AsyncOpenAI | None = None
+
+# LLM request timeout: 60s for connection, 120s total (allows for slow responses)
+LLM_TIMEOUT = httpx.Timeout(connect=60.0, read=120.0, write=60.0, pool=60.0)
 
 
 def get_client() -> AsyncOpenAI:
@@ -26,6 +38,7 @@ def get_client() -> AsyncOpenAI:
         _client = AsyncOpenAI(
             api_key=api_key,
             base_url=os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1"),
+            timeout=LLM_TIMEOUT,
         )
     return _client
 
@@ -88,6 +101,41 @@ def _build_schema_prompt(response_model: type[BaseModel]) -> str:
     )
 
 
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=15),
+    stop=stop_after_attempt(3),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+)
+async def _call_llm(
+    client: AsyncOpenAI,
+    augmented_messages: list[dict[str, Any]],
+    temperature: float,
+    max_tokens: int | None,
+) -> str:
+    model = get_model()
+    logger.info("LLM request starting (model=%s, max_tokens=%s)", model, max_tokens)
+    start_time = time.perf_counter()
+    try:
+        completion = await client.chat.completions.create(  # type: ignore[call-overload]
+            model=model,
+            messages=augmented_messages,
+            response_format={"type": "json_object"},
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        elapsed = time.perf_counter() - start_time
+        logger.info("LLM request completed in %.2fs", elapsed)
+        raw_content = completion.choices[0].message.content
+        if not raw_content:
+            raise ValueError("LLM returned empty response")
+        return raw_content
+    except Exception as e:
+        elapsed = time.perf_counter() - start_time
+        logger.error("LLM request failed after %.2fs: %s: %s", elapsed, type(e).__name__, e)
+        raise
+
+
 async def structured_completion(
     messages: list[ChatCompletionMessageParam],
     response_model: type[T],
@@ -109,23 +157,23 @@ async def structured_completion(
     if not any(m.get("role") == "system" for m in augmented_messages):
         augmented_messages.insert(0, {"role": "system", "content": schema_instruction})
 
-    completion = await client.chat.completions.create(  # type: ignore[call-overload]
-        model=get_model(),
-        messages=augmented_messages,
-        response_format={"type": "json_object"},
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-    raw_content = completion.choices[0].message.content
-    if not raw_content:
-        raise ValueError("LLM returned empty response")
+    raw_content = await _call_llm(client, augmented_messages, temperature, max_tokens)
 
     try:
         parsed_json = json.loads(raw_content)
     except json.JSONDecodeError as e:
-        logger.error("LLM returned invalid JSON: %s\nRaw: %s", e, raw_content[:500])
-        raise ValueError(f"LLM returned invalid JSON: {e}") from e
+        truncated_hint = ""
+        if "Unterminated" in str(e) or raw_content.rstrip()[-1] not in "]}":
+            truncated_hint = (
+                " (output likely truncated - try reducing paper count or increasing max_tokens)"
+            )
+        logger.error(
+            "LLM returned invalid JSON: %s%s\nRaw (last 500 chars): ...%s",
+            e,
+            truncated_hint,
+            raw_content[-500:],
+        )
+        raise ValueError(f"LLM 返回无效 JSON{truncated_hint}: {e}") from e
 
     schema_keys = {"properties", "type", "required", "$schema", "$defs"}
     actual_keys = set(parsed_json.keys()) - schema_keys

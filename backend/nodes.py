@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import time
 from typing import Any
 
 from pydantic import BaseModel
@@ -74,6 +75,7 @@ async def plan_node(state: AgentState) -> dict[str, Any]:
             conversation_context=conversation_context
         )
 
+    start_time = time.perf_counter()
     result = await structured_completion(
         messages=[
             {"role": "system", "content": system_content},
@@ -81,6 +83,8 @@ async def plan_node(state: AgentState) -> dict[str, Any]:
         ],
         response_model=KeywordPlan,
     )
+    elapsed = time.perf_counter() - start_time
+    logger.info("plan_node: LLM call completed in %.2fs", elapsed)
 
     keywords = result.keywords[:MAX_KEYWORDS]
     log_msg = f"Generated {len(keywords)} search keywords: {keywords}"
@@ -99,9 +103,12 @@ async def search_node(state: AgentState) -> dict[str, Any]:
     source_names = [s.value for s in sources]
 
     logger.info("search_node: searching %d keywords across %s", len(keywords), source_names)
+    start_time = time.perf_counter()
     papers = await search_papers_multi_source(
         keywords, sources=sources, limit_per_query=PAPERS_PER_QUERY
     )
+    elapsed = time.perf_counter() - start_time
+    logger.info("search_node: paper search completed in %.2fs", elapsed)
 
     log_msg = (
         f"Found {len(papers)} unique papers across {len(keywords)} queries from {source_names}"

@@ -42,12 +42,15 @@ export default function Home() {
   const getErrorMessage = (err: unknown): string => {
     if (err instanceof Error) {
       const msg = err.message.toLowerCase()
+      const originalMsg = err.message
+      
       if (msg.includes('timeout') || msg.includes('超时')) {
-        return t('timeout')
+        return `${t('timeout')} (${originalMsg})`
       }
       if (msg.includes('network') || msg.includes('fetch') || msg.includes('connection')) {
-        return t('networkError')
+        return `${t('networkError')} (${originalMsg})`
       }
+      return `${t('unknownError')} (${originalMsg})`
     }
     return t('unknownError')
   }
