@@ -13,7 +13,7 @@ class CitationPrecisionResult(BaseModel):
     valid_citations: int = Field(ge=0)
     invalid_indices: list[int] = Field(default_factory=list)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def precision(self) -> float:
         if self.total_citations == 0:
@@ -28,7 +28,7 @@ class CitationRecallResult(BaseModel):
     cited_count: int = Field(ge=0)
     uncited_indices: list[int] = Field(default_factory=list)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def recall(self) -> float:
         if self.total_approved == 0:
@@ -44,7 +44,7 @@ class SectionCompletenessResult(BaseModel):
     missing_sections: list[str] = Field(default_factory=list)
     extra_sections: list[str] = Field(default_factory=list)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def completeness_score(self) -> float:
         if len(self.required_sections) == 0:
@@ -62,21 +62,21 @@ class AcademicStyleResult(BaseModel):
     total_words: int = Field(ge=0)
     citation_count: int = Field(ge=0)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def hedging_ratio(self) -> float:
         if self.total_sentences == 0:
             return 0.0
         return self.hedging_count / self.total_sentences
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def passive_ratio(self) -> float:
         if self.total_sentences == 0:
             return 0.0
         return self.passive_count / self.total_sentences
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def citation_density(self) -> float:
         """Citations per 100 words."""
@@ -95,12 +95,12 @@ class CostEfficiencyResult(BaseModel):
     total_latency_ms: float = Field(ge=0)
     node_timings: dict[str, float] = Field(default_factory=dict)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_tokens(self) -> int:
         return self.prompt_tokens + self.completion_tokens
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def avg_tokens_per_call(self) -> float:
         if self.total_llm_calls == 0:
@@ -123,7 +123,7 @@ class HumanRating(BaseModel):
 
     comments: str = Field(default="")
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def average_rating(self) -> float:
         ratings = [
@@ -167,7 +167,7 @@ class EvaluationResult(BaseModel):
     paper_count: int = Field(ge=0)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def automated_score(self) -> float:
         """Weighted average: precision 20%, recall 15%, claim 25%, section 20%, style 20%."""
