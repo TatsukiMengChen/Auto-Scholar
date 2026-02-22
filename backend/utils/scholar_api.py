@@ -10,6 +10,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from backend.schemas import PaperMetadata, PaperSource
 from backend.utils.http_pool import get_session
+from backend.utils.source_tracker import record_failure, record_success, should_skip
 
 load_dotenv()
 
@@ -413,18 +414,31 @@ async def search_papers_multi_source(
 
     tasks = []
     source_names = []
+    source_keys = []
 
     if PaperSource.SEMANTIC_SCHOLAR in sources:
-        tasks.append(search_semantic_scholar(queries, limit_per_query))
-        source_names.append("Semantic Scholar")
+        if should_skip("semantic_scholar"):
+            logger.warning("Skipping Semantic Scholar due to recent failures")
+        else:
+            tasks.append(search_semantic_scholar(queries, limit_per_query))
+            source_names.append("Semantic Scholar")
+            source_keys.append("semantic_scholar")
 
     if PaperSource.ARXIV in sources:
-        tasks.append(search_arxiv(queries, limit_per_query))
-        source_names.append("arXiv")
+        if should_skip("arxiv"):
+            logger.warning("Skipping arXiv due to recent failures")
+        else:
+            tasks.append(search_arxiv(queries, limit_per_query))
+            source_names.append("arXiv")
+            source_keys.append("arxiv")
 
     if PaperSource.PUBMED in sources:
-        tasks.append(search_pubmed(queries, limit_per_query))
-        source_names.append("PubMed")
+        if should_skip("pubmed"):
+            logger.warning("Skipping PubMed due to recent failures")
+        else:
+            tasks.append(search_pubmed(queries, limit_per_query))
+            source_names.append("PubMed")
+            source_keys.append("pubmed")
 
     if not tasks:
         return []
@@ -434,7 +448,9 @@ async def search_papers_multi_source(
     for i, r in enumerate(results):
         if isinstance(r, BaseException):
             logger.error("Search from %s failed: %s", source_names[i], r)
+            record_failure(source_keys[i])
             continue
+        record_success(source_keys[i])
         all_papers.extend(r)
 
     return deduplicate_papers(all_papers)

@@ -63,3 +63,16 @@ DRAFT_MAX_TOKENS = 4000
 def get_draft_max_tokens(num_papers: int) -> int:
     """Calculate max tokens for draft based on paper count."""
     return min(DRAFT_MAX_TOKENS, DRAFT_BASE_TOKENS + num_papers * DRAFT_TOKENS_PER_PAPER)
+
+
+# =============================================================================
+# Source Failure Tracking
+# =============================================================================
+
+SOURCE_SKIP_THRESHOLD = 3
+# Why 3: After 3 consecutive failures, the source is likely down.
+# Fewer retries waste time; more delays user unnecessarily.
+
+SOURCE_SKIP_WINDOW_SECONDS = 120
+# Why 120: 2-minute window balances quick recovery detection with
+# avoiding repeated failures. Sources typically recover within minutes.
