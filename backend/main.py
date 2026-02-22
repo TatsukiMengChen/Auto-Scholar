@@ -12,6 +12,9 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from backend.constants import WORKFLOW_TIMEOUT_SECONDS
+from backend.evaluation.human_ratings import get_ratings_for_thread, save_rating
+from backend.evaluation.runner import run_evaluation
+from backend.evaluation.schemas import EvaluationResult, HumanRating
 from backend.schemas import (
     CitationStyle,
     ContinueRequest,
@@ -538,3 +541,44 @@ async def get_session(thread_id: str):
         logs=values.get("logs", []),
         messages=values.get("messages", []),
     )
+
+
+@app.get("/api/research/evaluate/{thread_id}", response_model=EvaluationResult)
+async def evaluate_session(thread_id: str):
+    graph = app.state.graph
+    config = _get_config(thread_id)
+
+    snapshot = await graph.aget_state(config)
+    if not snapshot.values:
+        raise HTTPException(status_code=404, detail=f"Session {thread_id} not found")
+
+    values = snapshot.values
+    draft = values.get("final_draft")
+    if not draft:
+        raise HTTPException(status_code=400, detail="Session has no completed draft to evaluate")
+
+    candidates = values.get("candidate_papers", [])
+    approved = [p for p in candidates if p.is_approved]
+    logs = values.get("logs", [])
+    language = values.get("output_language", "en")
+    claim_verification = values.get("claim_verification")
+
+    return run_evaluation(
+        thread_id=thread_id,
+        draft=draft,
+        approved_papers=approved,
+        logs=logs,
+        language=language,
+        claim_verification=claim_verification,
+    )
+
+
+@app.post("/api/ratings", response_model=HumanRating)
+async def submit_rating(rating: HumanRating):
+    save_rating(rating)
+    return rating
+
+
+@app.get("/api/ratings/{thread_id}", response_model=list[HumanRating])
+async def get_ratings(thread_id: str):
+    return get_ratings_for_thread(thread_id)
