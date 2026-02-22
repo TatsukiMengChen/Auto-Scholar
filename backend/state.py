@@ -4,6 +4,7 @@ from typing import Annotated
 from typing_extensions import TypedDict
 
 from backend.schemas import (
+    ClaimVerificationSummary,
     ConversationMessage,
     DraftOutline,
     DraftOutput,
@@ -29,3 +30,4 @@ class AgentState(TypedDict):
     current_agent: str
     agent_handoffs: Annotated[list[str], operator.add]
     draft_outline: DraftOutline | None
+    claim_verification: ClaimVerificationSummary | None
