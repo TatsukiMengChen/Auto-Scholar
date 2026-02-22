@@ -111,8 +111,13 @@ class PaperMetadata(BaseModel):
 
 class ReviewSection(BaseModel):
     heading: str
-    content: str  # Must contain {cite:N} style inline citations
-    cited_paper_ids: list[str] = []  # Populated by post-processing, not LLM
+    content: str
+    cited_paper_ids: list[str] = []
+
+
+class DraftOutline(BaseModel):
+    title: str
+    section_titles: list[str]
 
 
 class DraftOutput(BaseModel):

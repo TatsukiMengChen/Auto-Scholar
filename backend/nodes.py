@@ -23,13 +23,17 @@ from backend.prompts import (
     DRAFT_USER_PROMPT,
     KEYWORD_GENERATION_CONTINUATION,
     KEYWORD_GENERATION_SYSTEM,
+    OUTLINE_GENERATION_SYSTEM,
+    SECTION_GENERATION_SYSTEM,
 )
 from backend.schemas import (
     ConversationMessage,
+    DraftOutline,
     DraftOutput,
     MessageRole,
     PaperMetadata,
     PaperSource,
+    ReviewSection,
 )
 from backend.state import AgentState
 from backend.utils.fulltext_api import enrich_papers_with_fulltext
@@ -243,6 +247,66 @@ def _build_paper_context(papers: list[PaperMetadata]) -> str:
     return "\n\n".join(lines)
 
 
+async def _generate_outline(
+    user_query: str,
+    paper_context: str,
+    language_name: str,
+) -> DraftOutline:
+    return await structured_completion(
+        messages=[
+            {
+                "role": "system",
+                "content": OUTLINE_GENERATION_SYSTEM.format(language_name=language_name),
+            },
+            {
+                "role": "user",
+                "content": DRAFT_USER_PROMPT.format(
+                    user_query=user_query,
+                    paper_context=paper_context,
+                ),
+            },
+        ],
+        response_model=DraftOutline,
+    )
+
+
+async def _generate_section(
+    section_title: str,
+    section_num: int,
+    total_sections: int,
+    outline_titles: list[str],
+    user_query: str,
+    paper_context: str,
+    language_name: str,
+    num_papers: int,
+) -> ReviewSection:
+    result = await structured_completion(
+        messages=[
+            {
+                "role": "system",
+                "content": SECTION_GENERATION_SYSTEM.format(
+                    section_title=section_title,
+                    section_num=section_num,
+                    total_sections=total_sections,
+                    outline_titles=", ".join(outline_titles),
+                    language_name=language_name,
+                    num_papers=num_papers,
+                ),
+            },
+            {
+                "role": "user",
+                "content": DRAFT_USER_PROMPT.format(
+                    user_query=user_query,
+                    paper_context=paper_context,
+                ),
+            },
+        ],
+        response_model=ReviewSection,
+        max_tokens=1500,
+    )
+    return ReviewSection(heading=section_title, content=result.content)
+
+
 async def writer_agent(state: AgentState) -> dict[str, Any]:
     approved = state.get("approved_papers", [])
     papers_with_contributions = [p for p in approved if p.core_contribution]
@@ -264,64 +328,101 @@ async def writer_agent(state: AgentState) -> dict[str, Any]:
     user_query = state["user_query"]
     qa_errors = state.get("qa_errors", [])
     retry_count = state.get("retry_count", 0)
-
-    is_retry = retry_count > 0 and qa_errors
-    if is_retry:
-        logger.info("writer_agent: RETRY %d - fixing %d QA errors", retry_count, len(qa_errors))
-    elif is_continuation:
-        logger.info("writer_agent: CONTINUATION - updating draft based on: %s", user_query[:100])
-    else:
-        logger.info(
-            "writer_agent: drafting review with %d papers in %s",
-            len(papers_with_contributions),
-            output_language,
-        )
-
     language_name = "Chinese" if output_language == "zh" else "English"
     num_papers = len(papers_with_contributions)
 
-    system_prompt = DRAFT_GENERATION_SYSTEM.format(
-        language_name=language_name,
-        num_papers=num_papers,
-    )
+    is_retry = retry_count > 0 and qa_errors
+    use_single_call = is_retry or is_continuation
 
-    if is_continuation and messages:
-        conversation_context = _build_conversation_context(messages)
-        existing_draft = state.get("final_draft")
-        existing_draft_summary = ""
-        if existing_draft:
-            section_titles = [s.heading for s in existing_draft.sections]
-            existing_draft_summary = f"\nExisting draft title: {existing_draft.title}\nSections: {', '.join(section_titles)}"
+    if use_single_call:
+        if is_retry:
+            logger.info("writer_agent: RETRY %d - fixing %d QA errors", retry_count, len(qa_errors))
+        else:
+            logger.info(
+                "writer_agent: CONTINUATION - updating draft based on: %s", user_query[:100]
+            )
 
-        system_prompt += DRAFT_REVISION_ADDENDUM.format(
-            existing_draft_summary=existing_draft_summary,
-            user_query=user_query,
-            conversation_context=conversation_context,
-        )
-
-    if is_retry:
-        top_errors = qa_errors[:3]
-        error_list = "\n".join(f"- {e}" for e in top_errors)
-        system_prompt += DRAFT_RETRY_ADDENDUM.format(
-            error_count=len(qa_errors),
-            error_list=error_list,
+        system_prompt = DRAFT_GENERATION_SYSTEM.format(
+            language_name=language_name,
             num_papers=num_papers,
         )
 
-    draft = await structured_completion(
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": DRAFT_USER_PROMPT.format(
-                    user_query=user_query,
-                    paper_context=paper_context,
-                ),
-            },
-        ],
-        response_model=DraftOutput,
-        max_tokens=get_draft_max_tokens(num_papers),
-    )
+        if is_continuation and messages:
+            conversation_context = _build_conversation_context(messages)
+            existing_draft = state.get("final_draft")
+            existing_draft_summary = ""
+            if existing_draft:
+                section_titles = [s.heading for s in existing_draft.sections]
+                existing_draft_summary = (
+                    f"\nExisting draft title: {existing_draft.title}\n"
+                    f"Sections: {', '.join(section_titles)}"
+                )
+
+            system_prompt += DRAFT_REVISION_ADDENDUM.format(
+                existing_draft_summary=existing_draft_summary,
+                user_query=user_query,
+                conversation_context=conversation_context,
+            )
+
+        if is_retry:
+            top_errors = qa_errors[:3]
+            error_list = "\n".join(f"- {e}" for e in top_errors)
+            system_prompt += DRAFT_RETRY_ADDENDUM.format(
+                error_count=len(qa_errors),
+                error_list=error_list,
+                num_papers=num_papers,
+            )
+
+        draft = await structured_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": DRAFT_USER_PROMPT.format(
+                        user_query=user_query,
+                        paper_context=paper_context,
+                    ),
+                },
+            ],
+            response_model=DraftOutput,
+            max_tokens=get_draft_max_tokens(num_papers),
+        )
+        outline = None
+    else:
+        logger.info(
+            "writer_agent: generating outline-based review with %d papers in %s",
+            num_papers,
+            output_language,
+        )
+
+        outline = await _generate_outline(user_query, paper_context, language_name)
+        logger.info(
+            "writer_agent: outline generated - '%s' with %d sections",
+            outline.title,
+            len(outline.section_titles),
+        )
+
+        sections: list[ReviewSection] = []
+        for i, section_title in enumerate(outline.section_titles, 1):
+            logger.info(
+                "writer_agent: generating section %d/%d: %s",
+                i,
+                len(outline.section_titles),
+                section_title,
+            )
+            section = await _generate_section(
+                section_title=section_title,
+                section_num=i,
+                total_sections=len(outline.section_titles),
+                outline_titles=outline.section_titles,
+                user_query=user_query,
+                paper_context=paper_context,
+                language_name=language_name,
+                num_papers=num_papers,
+            )
+            sections.append(section)
+
+        draft = DraftOutput(title=outline.title, sections=sections)
 
     cite_pattern = re.compile(r"\{cite:(\d+)\}")
     all_cited_indices: set[int] = set()
@@ -336,12 +437,17 @@ async def writer_agent(state: AgentState) -> dict[str, Any]:
             num_papers,
         )
 
-    log_msg = f"Draft complete: '{draft.title}' with {len(draft.sections)} sections, {len(all_cited_indices)} unique citations"
+    log_msg = (
+        f"Draft complete: '{draft.title}' with {len(draft.sections)} sections, "
+        f"{len(all_cited_indices)} unique citations"
+    )
     if is_retry:
         log_msg += f" (retry {retry_count})"
     logger.info("writer_agent: %s", log_msg)
+
     return {
         "final_draft": draft,
+        "draft_outline": outline,
         "logs": [log_msg],
         "current_agent": "writer",
         "agent_handoffs": ["extractor→writer"] if not is_retry else ["critic→writer"],

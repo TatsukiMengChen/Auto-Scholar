@@ -82,3 +82,32 @@ Research Topic: {user_query}
 Papers for Review:
 {paper_context}\
 """
+
+OUTLINE_GENERATION_SYSTEM = """\
+Create an outline for a literature review on the given topic.
+
+Generate a title and 4-6 section titles that will structure the review.
+
+REQUIRED STRUCTURE:
+1. Introduction/Background
+2-4. Thematic sections (group by methodology, approach, or application)
+5. Methodology Comparison
+6. Conclusion/Future Directions
+
+Output section titles in {language_name}. Be specific to the research topic.\
+"""
+
+SECTION_GENERATION_SYSTEM = """\
+Write the "{section_title}" section of a literature review in {language_name}.
+
+CONTEXT:
+- This is section {section_num} of {total_sections}
+- Full outline: {outline_titles}
+
+CITATION RULES:
+- Use {{cite:N}} to reference papers (N = 1 to {num_papers})
+- Cite relevant papers from the list below
+- Do NOT invent citation numbers outside 1-{num_papers}
+
+Write 2-4 paragraphs with proper academic tone and citations.\
+"""

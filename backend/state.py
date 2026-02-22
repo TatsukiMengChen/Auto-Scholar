@@ -3,7 +3,13 @@ from typing import Annotated
 
 from typing_extensions import TypedDict
 
-from backend.schemas import ConversationMessage, DraftOutput, PaperMetadata, PaperSource
+from backend.schemas import (
+    ConversationMessage,
+    DraftOutline,
+    DraftOutput,
+    PaperMetadata,
+    PaperSource,
+)
 
 
 class AgentState(TypedDict):
@@ -20,6 +26,6 @@ class AgentState(TypedDict):
     search_sources: list[PaperSource]
     messages: Annotated[list[ConversationMessage], operator.add]
     is_continuation: bool
-    # Multi-agent coordination fields
-    current_agent: str  # "planner" | "retriever" | "extractor" | "writer" | "critic"
-    agent_handoffs: Annotated[list[str], operator.add]  # Audit trail: ["planner→retriever", ...]
+    current_agent: str
+    agent_handoffs: Annotated[list[str], operator.add]
+    draft_outline: DraftOutline | None
