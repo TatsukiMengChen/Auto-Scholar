@@ -85,3 +85,42 @@ MIN_ENTAILMENT_RATIO = 0.8
 # Why 0.8: At least 80% of claim-citation pairs must be "entails".
 # Below this threshold, QA fails and triggers retry.
 # 0.8 balances strictness with tolerance for edge cases.
+
+# =============================================================================
+# Evaluation Framework Configuration
+# =============================================================================
+
+REQUIRED_SECTIONS_EN = ["Introduction", "Background", "Methods", "Discussion", "Conclusion"]
+REQUIRED_SECTIONS_ZH = ["引言", "背景", "方法", "讨论", "结论"]
+
+SECTION_ALIASES: dict[str, list[str]] = {
+    "Introduction": ["Overview", "Preface", "概述", "前言"],
+    "Background": ["Related Work", "Literature Review", "相关工作", "文献综述"],
+    "Methods": ["Methodology", "Approach", "Techniques", "方法论", "技术方法"],
+    "Discussion": ["Analysis", "Results", "Findings", "分析", "结果", "发现"],
+    "Conclusion": ["Summary", "Conclusions", "总结", "结论与展望"],
+}
+
+HEDGING_PATTERNS_EN = [
+    r"\bmay\b",
+    r"\bmight\b",
+    r"\bcould\b",
+    r"\bpossibly\b",
+    r"\bperhaps\b",
+    r"\bsuggests?\b",
+    r"\bindicates?\b",
+    r"\bappears?\b",
+    r"\bseems?\b",
+    r"\blikely\b",
+    r"\bunlikely\b",
+    r"\bprobably\b",
+    r"\bpotentially\b",
+]
+HEDGING_PATTERNS_ZH = [r"可能", r"或许", r"似乎", r"大概", r"也许", r"表明", r"显示"]
+
+PASSIVE_PATTERN_EN = r"\b(is|are|was|were|been|being)\s+\w+ed\b"
+PASSIVE_PATTERN_ZH = r"被\w+"
+
+MIN_HEDGING_RATIO = 0.05
+MAX_HEDGING_RATIO = 0.20
+MIN_CITATION_DENSITY = 2.0
