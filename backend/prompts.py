@@ -29,6 +29,33 @@ If abstract is vague, infer from title. Output in English.
 CRITICAL: You MUST return a non-empty string for core_contribution.\
 """
 
+STRUCTURED_EXTRACTION_SYSTEM = """\
+Extract structured information from the paper in 8 dimensions.
+Each field should be 1-2 sentences. Use null if information is not available.
+
+DIMENSIONS:
+1. problem: What research problem is being addressed?
+2. method: What methodology or approach is used?
+3. novelty: What are the key innovations or contributions?
+4. dataset: What datasets are used? (null for theoretical papers)
+5. baseline: What baseline methods are compared? (null if no comparison)
+6. results: What are the key experimental results or findings?
+7. limitations: What limitations are acknowledged? (null if not mentioned)
+8. future_work: What future directions are suggested? (null if not mentioned)
+
+RULES:
+- Extract ONLY information explicitly stated or strongly implied in the abstract
+- Use null for fields where information is genuinely unavailable
+- Keep each field concise (1-2 sentences max)
+- Output in English regardless of input language\
+"""
+
+STRUCTURED_EXTRACTION_USER = """\
+Title: {title}
+Year: {year}
+Abstract: {abstract}\
+"""
+
 CONTRIBUTION_EXTRACTION_USER = """\
 Title: {title}
 Year: {year}

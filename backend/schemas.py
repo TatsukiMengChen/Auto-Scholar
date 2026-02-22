@@ -95,6 +95,60 @@ class ProgressEvent(BaseModel):
     message: str | None = None
 
 
+class StructuredContribution(BaseModel):
+    """8-dimension structured extraction from paper abstract.
+
+    All fields are optional since not all papers contain all information.
+    For example, theoretical papers may not have datasets or baselines.
+    """
+
+    problem: str | None = None
+    """Research problem being addressed."""
+
+    method: str | None = None
+    """Methodology or approach used."""
+
+    novelty: str | None = None
+    """Key innovations or contributions."""
+
+    dataset: str | None = None
+    """Datasets used for experiments (null for theoretical papers)."""
+
+    baseline: str | None = None
+    """Baseline methods compared against (null if no comparison)."""
+
+    results: str | None = None
+    """Key experimental results or findings."""
+
+    limitations: str | None = None
+    """Limitations acknowledged by authors (null if not mentioned)."""
+
+    future_work: str | None = None
+    """Future directions suggested (null if not mentioned)."""
+
+
+class MethodComparisonEntry(BaseModel):
+    """A single row in the method comparison table."""
+
+    paper_index: int
+    """1-based index of the paper in the review."""
+
+    title: str
+    """Paper title (truncated if too long)."""
+
+    method: str | None = None
+    """Method/approach summary."""
+
+    dataset: str | None = None
+    """Dataset used."""
+
+    baseline: str | None = None
+    """Baselines compared."""
+
+    results: str | None = None
+    """Key results."""
+
+
 class PaperMetadata(BaseModel):
     paper_id: str
     title: str
@@ -106,6 +160,7 @@ class PaperMetadata(BaseModel):
     pdf_url: str | None = None
     is_approved: bool = False
     core_contribution: str | None = None
+    structured_contribution: StructuredContribution | None = None
     source: PaperSource = PaperSource.SEMANTIC_SCHOLAR
 
 

@@ -28,15 +28,19 @@ from backend.prompts import (
     KEYWORD_GENERATION_SYSTEM,
     OUTLINE_GENERATION_SYSTEM,
     SECTION_GENERATION_SYSTEM,
+    STRUCTURED_EXTRACTION_SYSTEM,
+    STRUCTURED_EXTRACTION_USER,
 )
 from backend.schemas import (
     ConversationMessage,
     DraftOutline,
     DraftOutput,
     MessageRole,
+    MethodComparisonEntry,
     PaperMetadata,
     PaperSource,
     ReviewSection,
+    StructuredContribution,
 )
 from backend.state import AgentState
 from backend.utils.claim_verifier import verify_draft_citations
@@ -53,6 +57,17 @@ class KeywordPlan(BaseModel):
 
 class ContributionExtraction(BaseModel):
     core_contribution: str
+
+
+class StructuredExtractionResult(BaseModel):
+    problem: str | None = None
+    method: str | None = None
+    novelty: str | None = None
+    dataset: str | None = None
+    baseline: str | None = None
+    results: str | None = None
+    limitations: str | None = None
+    future_work: str | None = None
 
 
 def _build_conversation_context(
@@ -143,7 +158,7 @@ async def retriever_agent(state: AgentState) -> dict[str, Any]:
 
 
 async def _extract_contribution(paper: PaperMetadata) -> PaperMetadata:
-    result = await structured_completion(
+    core_task = structured_completion(
         messages=[
             {"role": "system", "content": CONTRIBUTION_EXTRACTION_SYSTEM},
             {
@@ -158,10 +173,43 @@ async def _extract_contribution(paper: PaperMetadata) -> PaperMetadata:
         response_model=ContributionExtraction,
     )
 
-    if not result.core_contribution or not result.core_contribution.strip():
+    structured_task = structured_completion(
+        messages=[
+            {"role": "system", "content": STRUCTURED_EXTRACTION_SYSTEM},
+            {
+                "role": "user",
+                "content": STRUCTURED_EXTRACTION_USER.format(
+                    title=paper.title,
+                    year=paper.year,
+                    abstract=paper.abstract,
+                ),
+            },
+        ],
+        response_model=StructuredExtractionResult,
+    )
+
+    core_result, structured_result = await asyncio.gather(core_task, structured_task)
+
+    if not core_result.core_contribution or not core_result.core_contribution.strip():
         raise ValueError("LLM returned empty core_contribution")
 
-    return paper.model_copy(update={"core_contribution": result.core_contribution})
+    structured_contrib = StructuredContribution(
+        problem=structured_result.problem or None,
+        method=structured_result.method or None,
+        novelty=structured_result.novelty or None,
+        dataset=structured_result.dataset or None,
+        baseline=structured_result.baseline or None,
+        results=structured_result.results or None,
+        limitations=structured_result.limitations or None,
+        future_work=structured_result.future_work or None,
+    )
+
+    return paper.model_copy(
+        update={
+            "core_contribution": core_result.core_contribution,
+            "structured_contribution": structured_contrib,
+        }
+    )
 
 
 async def extractor_agent(state: AgentState) -> dict[str, Any]:
@@ -244,11 +292,49 @@ def _build_paper_context(papers: list[PaperMetadata]) -> str:
             f"    Authors: {', '.join(p.authors[:3])}{'...' if len(p.authors) > 3 else ''}",
             f"    Contribution: {p.core_contribution}",
         ]
-        if p.abstract:
+
+        sc = p.structured_contribution
+        if sc:
+            if sc.problem:
+                paper_info.append(f"    Problem: {sc.problem}")
+            if sc.method:
+                paper_info.append(f"    Method: {sc.method}")
+            if sc.novelty:
+                paper_info.append(f"    Novelty: {sc.novelty}")
+            if sc.dataset:
+                paper_info.append(f"    Dataset: {sc.dataset}")
+            if sc.baseline:
+                paper_info.append(f"    Baseline: {sc.baseline}")
+            if sc.results:
+                paper_info.append(f"    Results: {sc.results}")
+            if sc.limitations:
+                paper_info.append(f"    Limitations: {sc.limitations}")
+            if sc.future_work:
+                paper_info.append(f"    Future Work: {sc.future_work}")
+        elif p.abstract:
             abstract_preview = p.abstract[:200] + "..." if len(p.abstract) > 200 else p.abstract
             paper_info.append(f"    Abstract: {abstract_preview}")
+
         lines.append("\n".join(paper_info))
     return "\n\n".join(lines)
+
+
+def build_comparison_table(papers: list[PaperMetadata]) -> list[MethodComparisonEntry]:
+    entries: list[MethodComparisonEntry] = []
+    for i, p in enumerate(papers, 1):
+        sc = p.structured_contribution
+        title = p.title[:60] + "..." if len(p.title) > 60 else p.title
+        entries.append(
+            MethodComparisonEntry(
+                paper_index=i,
+                title=title,
+                method=sc.method if sc else None,
+                dataset=sc.dataset if sc else None,
+                baseline=sc.baseline if sc else None,
+                results=sc.results if sc else None,
+            )
+        )
+    return entries
 
 
 async def _generate_outline(
